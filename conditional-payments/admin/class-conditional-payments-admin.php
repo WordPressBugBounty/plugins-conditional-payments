@@ -117,6 +117,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $allConditions['product_tags_disabled'] = esc_html__( 'Product Tags 🔒', 'conditional-payments' );
             $allConditions['product_type_disabled'] = esc_html__( 'Product Type 🔒', 'conditional-payments' );
             $allConditions['billing_email_disabled'] = esc_html__( 'Email 🔒', 'conditional-payments' );
+            $allConditions['billing_phone_disabled'] = esc_html__( 'Phone 🔒', 'conditional-payments' );
             $allConditions['customer_group'] = esc_html__( 'Customer', 'conditional-payments' );
             $allConditions['customer_authenticated_disabled'] = esc_html__( 'Logged in / out 🔒', 'conditional-payments' );
             $allConditions['user_role_disabled'] = esc_html__( 'User Role 🔒', 'conditional-payments' );
@@ -135,11 +136,13 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $allConditions['billing_city_msg'] = esc_html__( 'Add only one city in a Line. You can add multiple cities in each new line.', 'conditional-payments' );
             $allConditions['shipping_postcode_msg'] = esc_html__( 'Add only one post/zip code in a Line. You can add multiple postcode in each new line.', 'conditional-payments' );
             $allConditions['billing_postcode_msg'] = esc_html__( 'Add only one post/zip code in a Line. You can add multiple postcode in each new line.', 'conditional-payments' );
+            $allConditions['billing_phone_msg'] = esc_html__( 'Add only one phone number in a Line. You can add multiple phone number in each new line. ', 'conditional-payments' );
             $allConditions['cart_totalafter_msg'] = esc_html__( 'This rule will apply when you would apply coupun in front side. ', 'conditional-payments' );
             $allConditions['click_here'] = esc_html__( 'Click Here.', 'conditional-payments' );
             $allConditions['docs_url'] = esc_url( 'https://docs.thedotstore.com/collection/485-conditional-payments', 'conditional-payments' );
             $allConditions['time_disabled'] = esc_html__( 'Time 🔒', 'conditional-payments' );
             $allConditions['product_visibility_disabled'] = esc_html__( 'Product Visibility 🔒', 'conditional-payments' );
+            $allConditions['product_stock_status_disabled'] = esc_html__( 'Stock Status 🔒', 'conditional-payments' );
             if ( isset( $get_section ) && false !== strpos( $get_section, 'dscpw_conditional_payments' ) ) {
                 wp_enqueue_script( 'jquery-ui-datepicker' );
                 wp_enqueue_style(
@@ -909,6 +912,21 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                             }
                         }
                     }
+                    if ( class_exists( 'Flexible_Shipping_Plugin' ) ) {
+                        if ( in_array( $val->id, $dscpw_sm_list['dscpw_compatible_shipping'], true ) ) {
+                            if ( 'yes' === $val->enabled ) {
+                                if ( 'advanced' === $args ) {
+                                    if ( isset( $val->cost ) && !empty( $val->cost ) ) {
+                                        $default_shipping_unique_id = $val->id . ':' . $val->instance_id;
+                                        $zone_status_array[$default_shipping_unique_id] = $the_zone['zone_name'] . ' - ' . $val->title;
+                                    }
+                                } else {
+                                    $default_shipping_unique_id = $val->id . ':' . $val->instance_id;
+                                    $zone_status_array[$default_shipping_unique_id] = $the_zone['zone_name'] . ' - ' . $val->title;
+                                }
+                            }
+                        }
+                    }
                 }
             }
             // Include default zone shipping methods
@@ -1001,7 +1019,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 'flat_rate',
                 'free_shipping',
                 'local_pickup',
-                'advanced_flat_rate_shipping'
+                'advanced_flat_rate_shipping',
+                'flexible_shipping_single'
             );
             $retun_pram = array(
                 'dscpw_default_shipping'    => $dscpw_default_sm_list,
@@ -1026,13 +1045,15 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
          */
         public function dscpw_get_payment_gateway_list( $count = '', $selected = array(), $json = false ) {
             $filter_payment_gateway = [];
-            $chosen_payment_method = WC()->payment_gateways->get_available_payment_gateways();
+            $chosen_payment_method = WC()->payment_gateways->payment_gateways();
             $html = '<select rel-id="' . esc_attr( $count ) . '" name="cp_actions[payment_actions_values][value_' . esc_attr( $count ) . '][]" class="dscpw_select payment_actions_values multiselect2 payment_actions_values_payment_gateway" multiple="multiple">';
             if ( isset( $chosen_payment_method ) && !empty( $chosen_payment_method ) ) {
                 foreach ( $chosen_payment_method as $chosen_payment_method_key ) {
-                    $selectedVal = ( !empty( $selected ) && in_array( $chosen_payment_method_key->id, $selected, true ) ? 'selected=selected' : '' );
-                    $html .= '<option value="' . esc_attr( $chosen_payment_method_key->id ) . '" ' . esc_attr( $selectedVal ) . '>' . esc_html( $chosen_payment_method_key->title ) . '</option>';
-                    $filter_payment_gateway[$chosen_payment_method_key->id] = $chosen_payment_method_key->title;
+                    if ( isset( $chosen_payment_method_key->enabled ) && 'yes' === $chosen_payment_method_key->enabled ) {
+                        $selectedVal = ( !empty( $selected ) && in_array( $chosen_payment_method_key->id, $selected, true ) ? 'selected=selected' : '' );
+                        $html .= '<option value="' . esc_attr( $chosen_payment_method_key->id ) . '" ' . esc_attr( $selectedVal ) . '>' . esc_html( $chosen_payment_method_key->title ) . '</option>';
+                        $filter_payment_gateway[$chosen_payment_method_key->id] = $chosen_payment_method_key->title;
+                    }
                 }
             }
             $html .= '</select>';
@@ -1058,7 +1079,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_get_payment_gateway_list_payment_fee( $count = '', $selected = array(), $json = false ) {
             $filter_payment_gateway = [];
             $tax_classes = WC_Tax::get_tax_classes();
-            $chosen_payment_method = WC()->payment_gateways->get_available_payment_gateways();
+            $chosen_payment_method = WC()->payment_gateways->payment_gateways();
             $selected_payment = ( isset( $selected['payment'] ) && !empty( $selected['payment'] ) ? $selected['payment'] : array() );
             $fee_title = ( isset( $selected['fee-title'] ) && !empty( $selected['fee-title'] ) ? $selected['fee-title'] : '' );
             $amount = ( isset( $selected['amount'] ) && !empty( $selected['amount'] ) ? $selected['amount'] : '' );
@@ -1068,9 +1089,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $html .= '<select rel-id="' . esc_attr( $count ) . '" name="cp_actions[payment_actions_values][value_' . esc_attr( $count ) . '][payment][]" class="dscpw_select payment_actions_values multiselect2 payment_actions_values_payment_gateway" multiple="multiple">';
             if ( isset( $chosen_payment_method ) && !empty( $chosen_payment_method ) ) {
                 foreach ( $chosen_payment_method as $chosen_payment_method_key ) {
-                    $selectedVal = ( !empty( $selected_payment ) && in_array( $chosen_payment_method_key->id, $selected_payment, true ) ? 'selected=selected' : '' );
-                    $html .= '<option value="' . esc_attr( $chosen_payment_method_key->id ) . '" ' . esc_attr( $selectedVal ) . '>' . esc_html( $chosen_payment_method_key->title ) . '</option>';
-                    $filter_payment_gateway['payment'][$chosen_payment_method_key->id] = $chosen_payment_method_key->title;
+                    if ( isset( $chosen_payment_method_key->enabled ) && 'yes' === $chosen_payment_method_key->enabled ) {
+                        $selectedVal = ( !empty( $selected_payment ) && in_array( $chosen_payment_method_key->id, $selected_payment, true ) ? 'selected=selected' : '' );
+                        $html .= '<option value="' . esc_attr( $chosen_payment_method_key->id ) . '" ' . esc_attr( $selectedVal ) . '>' . esc_html( $chosen_payment_method_key->title ) . '</option>';
+                        $filter_payment_gateway['payment'][$chosen_payment_method_key->id] = $chosen_payment_method_key->title;
+                    }
                 }
             }
             $html .= '</select>';

@@ -304,7 +304,6 @@
                 plugin_id: '10262',
                 plan_id: '17320',
                 public_key:'pk_9edf804dccd14eabfd00ff503acaf',
-                image: 'https://www.thedotstore.com/wp-content/uploads/sites/1417/2023/10/Conditional-Payments-For-Woocommerce-Banner-New.png',
                 coupon: couponCode,
                 show_reviews: true,
                 show_refund_badge: true
@@ -822,7 +821,7 @@
         }
 
         /** Script for Freemius upgrade popup */
-        $(document).on('click', '.dscpw-section-main .dscpw-pro-label', function(){
+        $(document).on('click', '.dscpw-pro-label', function(){
             $('body').addClass('dscpw-modal-visible');
         });
         $(document).on('click', '.upgrade-to-pro-modal-main .modal-close-btn', function(){

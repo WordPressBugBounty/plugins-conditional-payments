@@ -143,6 +143,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																	<option value="product_quantity_disabled"><?php 
         esc_html_e( 'Product Quantity 🔒', 'conditional-payments' );
         ?></option>
+																	<option value="product_stock_status_disabled"><?php 
+        esc_html_e( 'Stock Status 🔒', 'conditional-payments' );
+        ?></option>
 																<?php 
         ?>
 													</optgroup>
@@ -238,6 +241,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
         ?>
 																	<option value="billing_email_disabled"><?php 
         esc_html_e( 'Email 🔒', 'conditional-payments' );
+        ?></option>
+																	<option value="billing_phone_disabled"><?php 
+        esc_html_e( 'Phone 🔒', 'conditional-payments' );
         ?></option>
 																	<option value="previous_order_disabled"><?php 
         esc_html_e( 'Previous Order 🔒', 'conditional-payments' );
@@ -387,7 +393,7 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             ?></option>
 													</select>
 													<?php 
-        } elseif ( 'billing_email' === $payment_conditions || 'user' === $payment_conditions || 'user_role' === $payment_conditions || 'product_categories' === $payment_conditions || 'product_tags' === $payment_conditions || 'product_type' === $payment_conditions || 'shipping_class' === $payment_conditions || 'coupon' === $payment_conditions ) {
+        } elseif ( 'billing_email' === $payment_conditions || 'user' === $payment_conditions || 'user_role' === $payment_conditions || 'product_categories' === $payment_conditions || 'product_tags' === $payment_conditions || 'product_type' === $payment_conditions || 'shipping_class' === $payment_conditions || 'coupon' === $payment_conditions || 'product_stock_status' === $payment_conditions ) {
         } elseif ( 'customer_authenticated' === $payment_conditions ) {
         } else {
             ?>
@@ -564,6 +570,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																	<option value="product_quantity_disabled"><?php 
     esc_html_e( 'Product Quantity 🔒', 'conditional-payments' );
     ?></option>
+																	<option value="product_stock_status_disabled"><?php 
+    esc_html_e( 'Stock Status 🔒', 'conditional-payments' );
+    ?></option>
 																<?php 
     ?>
 													</optgroup>
@@ -637,6 +646,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
     ?>
 																	<option value="billing_email_disabled"><?php 
     esc_html_e( 'Email 🔒', 'conditional-payments' );
+    ?></option>
+																	<option value="billing_phone_disabled"><?php 
+    esc_html_e( 'Phone 🔒', 'conditional-payments' );
     ?></option>
 																	<option value="previous_order_disabled"><?php 
     esc_html_e( 'Previous Order', 'conditional-payments' );

@@ -161,6 +161,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments' ) ) {
                 10,
                 1
             );
+            $this->loader->add_action( 'woocommerce_blocks_enqueue_checkout_block_scripts_after', $plugin_public, 'dscpw_enqueue_checkout_script' );
+            $this->loader->add_action( 'woocommerce_init', $plugin_public, 'dscpw_update_block_check_payment_methods' );
             if ( !is_admin() ) {
                 $this->loader->add_filter( 'woocommerce_available_payment_gateways', $plugin_public, 'dscpw_unset_payments_methods' );
             }

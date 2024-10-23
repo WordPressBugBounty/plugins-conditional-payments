@@ -52,6 +52,10 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          *
          * @since    1.0.0
          */
+        private $debug_data = array();
+
+        private $block_rendered = false;
+
         public function __construct( $plugin_name, $version ) {
             $this->plugin_name = $plugin_name;
             $this->version = $version;
@@ -65,6 +69,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          *
          */
         public function dscpw_enqueue_public_scripts() {
+            wp_enqueue_style(
+                $this->plugin_name . 'debug-style',
+                plugin_dir_url( __FILE__ ) . 'css/dscpw-debug.css',
+                array(),
+                'all'
+            );
             wp_enqueue_script(
                 $this->plugin_name . 'public-js',
                 plugin_dir_url( __FILE__ ) . 'js/conditional-payments-public.js',
@@ -75,6 +85,66 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             wp_localize_script( $this->plugin_name . 'public-js', 'dscpw_conditional_payments_settings', array(
                 'name_address_fields' => $this->dscpw_name_address_fields(),
                 'ajaxurl'             => admin_url( 'admin-ajax.php' ),
+            ) );
+            wp_enqueue_script(
+                $this->plugin_name . 'debug-js',
+                plugin_dir_url( __FILE__ ) . 'js/dscpw-debug-data.js',
+                array(),
+                $this->version,
+                true
+            );
+        }
+
+        /**
+         * Register the styles for the public area.
+         *
+         * @since    1.2.1
+         *
+         */
+        public function dscpw_enqueue_checkout_script() {
+            wp_enqueue_script(
+                $this->plugin_name . 'dscpw-checkout-script',
+                plugin_dir_url( __FILE__ ) . 'js/dscpw-checkout-block-update.js',
+                array(
+                    'wc-blocks-checkout',
+                    'wc-blocks-data-store',
+                    'wc-settings',
+                    'wp-data'
+                ),
+                $this->version,
+                true
+            );
+        }
+
+        /**
+         * Update the block with the payment method.
+         *
+         * @since    1.2.1
+         *
+         */
+        public function dscpw_update_block_check_payment_methods() {
+            woocommerce_store_api_register_update_callback( array(
+                'namespace' => 'dscpw-chosen-payment-method',
+                'callback'  => function ( $data ) {
+                    if ( !isset( $data['method'] ) ) {
+                        return;
+                    }
+                    wc()->session->set( 'chosen_payment_method', $data['method'] );
+                    if ( isset( $data['billingData'] ) ) {
+                        $billing_data = $data['billingData']['billingAddress'];
+                        $shipping_data = $data['billingData']['shippingAddress'];
+                        if ( wc_ship_to_billing_address_only() ) {
+                            WC()->customer->set_props( array(
+                                'billing_country' => ( isset( $billing_data['country'] ) ? wc_clean( wp_unslash( $billing_data['country'] ) ) : null ),
+                            ) );
+                        } else {
+                            WC()->customer->set_props( array(
+                                'shipping_country' => ( isset( $shipping_data['country'] ) ? wc_clean( wp_unslash( $shipping_data['country'] ) ) : null ),
+                            ) );
+                        }
+                        WC()->customer->save();
+                    }
+                },
             ) );
         }
 
@@ -215,6 +285,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     if ( array_search( 'billing_postcode', $value, true ) ) {
                         $billing_postcode_array[$key] = $value;
                     }
+                    if ( array_search( 'billing_phone', $value, true ) ) {
+                        $billing_phone_array[$key] = $value;
+                    }
                     if ( array_search( 'shipping_first_name', $value, true ) ) {
                         $shipping_firstname_array[$key] = $value;
                     }
@@ -247,7 +320,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is product exist
                     if ( is_array( $product_array ) && isset( $product_array ) && !empty( $product_array ) && !empty( $cart_product_ids_array ) ) {
-                        $product_passed = $this->dscpw_match_simple_products_rule( $cart_product_ids_array, $product_array, $general_rule_match );
+                        $product_passed = $this->dscpw_match_simple_products_rule(
+                            $cart_product_ids_array,
+                            $product_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $product_passed ) {
                             $is_passed['has_condition_based_on_product'] = 'yes';
                         } else {
@@ -256,7 +334,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is variable product exist
                     if ( is_array( $variable_product_array ) && isset( $variable_product_array ) && !empty( $variable_product_array ) && !empty( $cart_product_ids_array ) ) {
-                        $variable_prd_passed = $this->dscpw_match_variable_products_rule( $cart_variation_ids_array, $variable_product_array, $general_rule_match );
+                        $variable_prd_passed = $this->dscpw_match_variable_products_rule(
+                            $cart_variation_ids_array,
+                            $variable_product_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $variable_prd_passed ) {
                             $is_passed['has_condition_based_on_var_product'] = 'yes';
                         } else {
@@ -265,7 +348,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is Cart Subtotal (Before Discount) exist
                     if ( is_array( $cart_total_array ) && isset( $cart_total_array ) && !empty( $cart_total_array ) && !empty( $cart_product_ids_array ) ) {
-                        $cart_total_before_passed = $this->dscpw_match_cart_subtotal_before_discount_rule( $wc_curr_version, $cart_total_array, $general_rule_match );
+                        $cart_total_before_passed = $this->dscpw_match_cart_subtotal_before_discount_rule(
+                            $wc_curr_version,
+                            $cart_total_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $cart_total_before_passed ) {
                             $is_passed['has_condition_based_on_cart_total'] = 'yes';
                         } else {
@@ -274,7 +362,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is Cart Subtotal (After Discount) exist
                     if ( is_array( $cart_total_after_array ) && isset( $cart_total_after_array ) && !empty( $cart_total_after_array ) && !empty( $cart_product_ids_array ) ) {
-                        $cart_total_after_passed = $this->dscpw_match_cart_subtotal_after_discount_rule( $wc_curr_version, $cart_total_after_array, $general_rule_match );
+                        $cart_total_after_passed = $this->dscpw_match_cart_subtotal_after_discount_rule(
+                            $wc_curr_version,
+                            $cart_total_after_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $cart_total_after_passed ) {
                             $is_passed['has_condition_based_on_cart_total_after'] = 'yes';
                         } else {
@@ -283,7 +376,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping method exist
                     if ( is_array( $shipping_method_array ) && isset( $shipping_method_array ) && !empty( $shipping_method_array ) && !empty( $cart_array ) ) {
-                        $shipping_method_passed = $this->dscpw_match_shipping_method_rule( $wc_curr_version, $shipping_method_array, $general_rule_match );
+                        $shipping_method_passed = $this->dscpw_match_shipping_method_rule(
+                            $wc_curr_version,
+                            $shipping_method_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_method_passed ) {
                             $is_passed['has_condition_based_on_shipping_method'] = 'yes';
                         } else {
@@ -292,7 +390,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing firstname exist
                     if ( is_array( $billing_firstname_array ) && isset( $billing_firstname_array ) && !empty( $billing_firstname_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_firstname_passed = $this->dscpw_match_billing_firstname_rules( 'billing_first_name', $billing_firstname_array, $general_rule_match );
+                        $billing_firstname_passed = $this->dscpw_match_billing_firstname_rules(
+                            'billing_first_name',
+                            $billing_firstname_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $billing_firstname_passed ) {
                             $is_passed['has_condition_based_on_billing_firstname'] = 'yes';
                         } else {
@@ -301,7 +404,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing lastname exist
                     if ( is_array( $billing_lastname_array ) && isset( $billing_lastname_array ) && !empty( $billing_lastname_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_lastname_passed = $this->dscpw_match_billing_lastname_rules( 'billing_last_name', $billing_lastname_array, $general_rule_match );
+                        $billing_lastname_passed = $this->dscpw_match_billing_lastname_rules(
+                            'billing_last_name',
+                            $billing_lastname_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $billing_lastname_passed ) {
                             $is_passed['has_condition_based_on_billing_lastname'] = 'yes';
                         } else {
@@ -310,7 +418,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing company exist
                     if ( is_array( $billing_company_array ) && isset( $billing_company_array ) && !empty( $billing_company_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_company_passed = $this->dscpw_match_billing_company_rules( 'billing_company', $billing_company_array, $general_rule_match );
+                        $billing_company_passed = $this->dscpw_match_billing_company_rules(
+                            'billing_company',
+                            $billing_company_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $billing_company_passed ) {
                             $is_passed['has_condition_based_on_billing_company'] = 'yes';
                         } else {
@@ -319,7 +432,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing address 1 exist
                     if ( is_array( $billing_address_1_array ) && isset( $billing_address_1_array ) && !empty( $billing_address_1_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_address_1_passed = $this->dscpw_match_billing_address_1_rules( 'billing_address_1', $billing_address_1_array, $general_rule_match );
+                        $billing_address_1_passed = $this->dscpw_match_billing_address_1_rules(
+                            'billing_address_1',
+                            $billing_address_1_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $billing_address_1_passed ) {
                             $is_passed['has_condition_based_on_billing_address_1'] = 'yes';
                         } else {
@@ -328,7 +446,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing address 2 exist
                     if ( is_array( $billing_address_2_array ) && isset( $billing_address_2_array ) && !empty( $billing_address_2_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_address_2_passed = $this->dscpw_match_billing_address_2_rules( 'billing_address_2', $billing_address_2_array, $general_rule_match );
+                        $billing_address_2_passed = $this->dscpw_match_billing_address_2_rules(
+                            'billing_address_2',
+                            $billing_address_2_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $billing_address_2_passed ) {
                             $is_passed['has_condition_based_on_billing_address_2'] = 'yes';
                         } else {
@@ -337,7 +460,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing country exist
                     if ( is_array( $billing_country_array ) && isset( $billing_country_array ) && !empty( $billing_country_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_country_passed = $this->dscpw_match_billing_country_rules( $billing_country_array, $general_rule_match );
+                        $billing_country_passed = $this->dscpw_match_billing_country_rules( $billing_country_array, $general_rule_match, $cp_post_data->ID );
                         if ( 'yes' === $billing_country_passed ) {
                             $is_passed['has_condition_based_on_billing_country'] = 'yes';
                         } else {
@@ -346,7 +469,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing city exist
                     if ( is_array( $billing_city_array ) && isset( $billing_city_array ) && !empty( $billing_city_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_city_passed = $this->dscpw_match_billing_city_rules( 'billing_city', $billing_city_array, $general_rule_match );
+                        $billing_city_passed = $this->dscpw_match_billing_city_rules(
+                            'billing_city',
+                            $billing_city_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $billing_city_passed ) {
                             $is_passed['has_condition_based_on_billing_city'] = 'yes';
                         } else {
@@ -355,7 +483,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is billing postcode exist
                     if ( is_array( $billing_postcode_array ) && isset( $billing_postcode_array ) && !empty( $billing_postcode_array ) && !empty( $cart_product_ids_array ) ) {
-                        $billing_postcode_passed = $this->dscpw_match_billing_postcode_rules( $billing_postcode_array, $general_rule_match );
+                        $billing_postcode_passed = $this->dscpw_match_billing_postcode_rules( $billing_postcode_array, $general_rule_match, $cp_post_data->ID );
                         if ( 'yes' === $billing_postcode_passed ) {
                             $is_passed['has_condition_based_on_billing_postcode'] = 'yes';
                         } else {
@@ -364,7 +492,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping firstname exist
                     if ( is_array( $shipping_firstname_array ) && isset( $shipping_firstname_array ) && !empty( $shipping_firstname_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_firstname_passed = $this->dscpw_match_shipping_firstname_rules( 'shipping_first_name', $shipping_firstname_array, $general_rule_match );
+                        $shipping_firstname_passed = $this->dscpw_match_shipping_firstname_rules(
+                            'shipping_first_name',
+                            $shipping_firstname_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_firstname_passed ) {
                             $is_passed['has_condition_based_on_shipping_firstname'] = 'yes';
                         } else {
@@ -373,7 +506,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping lastname exist
                     if ( is_array( $shipping_lastname_array ) && isset( $shipping_lastname_array ) && !empty( $shipping_lastname_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_lastname_passed = $this->dscpw_match_shipping_lastname_rules( 'shipping_last_name', $shipping_lastname_array, $general_rule_match );
+                        $shipping_lastname_passed = $this->dscpw_match_shipping_lastname_rules(
+                            'shipping_last_name',
+                            $shipping_lastname_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_lastname_passed ) {
                             $is_passed['has_condition_based_on_shipping_lastname'] = 'yes';
                         } else {
@@ -382,7 +520,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping company exist
                     if ( is_array( $shipping_company_array ) && isset( $shipping_company_array ) && !empty( $shipping_company_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_company_passed = $this->dscpw_match_shipping_company_rules( 'shipping_company', $shipping_company_array, $general_rule_match );
+                        $shipping_company_passed = $this->dscpw_match_shipping_company_rules(
+                            'shipping_company',
+                            $shipping_company_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_company_passed ) {
                             $is_passed['has_condition_based_on_shipping_company'] = 'yes';
                         } else {
@@ -391,7 +534,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping address 1 exist
                     if ( is_array( $shipping_address_1_array ) && isset( $shipping_address_1_array ) && !empty( $shipping_address_1_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_address_1_passed = $this->dscpw_match_shipping_address_1_rules( 'shipping_address_1', $shipping_address_1_array, $general_rule_match );
+                        $shipping_address_1_passed = $this->dscpw_match_shipping_address_1_rules(
+                            'shipping_address_1',
+                            $shipping_address_1_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_address_1_passed ) {
                             $is_passed['has_condition_based_on_shipping_address_1'] = 'yes';
                         } else {
@@ -400,7 +548,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping address 2 exist
                     if ( is_array( $shipping_address_2_array ) && isset( $shipping_address_2_array ) && !empty( $shipping_address_2_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_address_2_passed = $this->dscpw_match_shipping_address_2_rules( 'shipping_address_2', $shipping_address_2_array, $general_rule_match );
+                        $shipping_address_2_passed = $this->dscpw_match_shipping_address_2_rules(
+                            'shipping_address_2',
+                            $shipping_address_2_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_address_2_passed ) {
                             $is_passed['has_condition_based_on_shipping_address_2'] = 'yes';
                         } else {
@@ -409,7 +562,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping country exist
                     if ( is_array( $shipping_country_array ) && isset( $shipping_country_array ) && !empty( $shipping_country_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_country_passed = $this->dscpw_match_shipping_country_rules( $shipping_country_array, $general_rule_match );
+                        $shipping_country_passed = $this->dscpw_match_shipping_country_rules( $shipping_country_array, $general_rule_match, $cp_post_data->ID );
                         if ( 'yes' === $shipping_country_passed ) {
                             $is_passed['has_condition_based_on_shipping_country'] = 'yes';
                         } else {
@@ -418,7 +571,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping city exist
                     if ( is_array( $shipping_city_array ) && isset( $shipping_city_array ) && !empty( $shipping_city_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_city_passed = $this->dscpw_match_shipping_city_rules( 'shipping_city', $shipping_city_array, $general_rule_match );
+                        $shipping_city_passed = $this->dscpw_match_shipping_city_rules(
+                            'shipping_city',
+                            $shipping_city_array,
+                            $general_rule_match,
+                            $cp_post_data->ID
+                        );
                         if ( 'yes' === $shipping_city_passed ) {
                             $is_passed['has_condition_based_on_shipping_city'] = 'yes';
                         } else {
@@ -427,7 +585,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is shipping postcode exist
                     if ( is_array( $shipping_postcode_array ) && isset( $shipping_postcode_array ) && !empty( $shipping_postcode_array ) && !empty( $cart_product_ids_array ) ) {
-                        $shipping_postcode_passed = $this->dscpw_match_shipping_postcode_rules( $shipping_postcode_array, $general_rule_match );
+                        $shipping_postcode_passed = $this->dscpw_match_shipping_postcode_rules( $shipping_postcode_array, $general_rule_match, $cp_post_data->ID );
                         if ( 'yes' === $shipping_postcode_passed ) {
                             $is_passed['has_condition_based_on_shipping_postcode'] = 'yes';
                         } else {
@@ -436,7 +594,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is day of week exist
                     if ( is_array( $day_of_week_array ) && isset( $day_of_week_array ) && !empty( $day_of_week_array ) && !empty( $cart_product_ids_array ) ) {
-                        $day_of_week_passed = $this->dscpw_match_day_of_week_rules( $day_of_week_array, $general_rule_match );
+                        $day_of_week_passed = $this->dscpw_match_day_of_week_rules( $day_of_week_array, $general_rule_match, $cp_post_data->ID );
                         if ( 'yes' === $day_of_week_passed ) {
                             $is_passed['has_condition_based_on_day_of_week'] = 'yes';
                         } else {
@@ -445,7 +603,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     //Check if is date exist
                     if ( is_array( $date_array ) && isset( $date_array ) && !empty( $date_array ) && !empty( $cart_product_ids_array ) ) {
-                        $date_passed = $this->dscpw_match_date_rules( $date_array, $general_rule_match );
+                        $date_passed = $this->dscpw_match_date_rules( $date_array, $general_rule_match, $cp_post_data->ID );
                         if ( 'yes' === $date_passed ) {
                             $is_passed['has_condition_based_on_date'] = 'yes';
                         } else {
@@ -491,7 +649,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                 'shipping_first_name',
                 'shipping_last_name',
                 'shipping_company',
-                'billing_email'
+                'billing_email',
+                'billing_phone'
             );
             $same_addr = FALSE;
             if ( !isset( $data['ship_to_different_address'] ) || $data['ship_to_different_address'] !== '1' ) {
@@ -500,7 +659,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     'billing_first_name',
                     'billing_last_name',
                     'billing_company',
-                    'billing_email'
+                    'billing_email',
+                    'billing_phone'
                 );
             }
             foreach ( $attrs as $attr ) {
@@ -545,13 +705,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_simple_products_rule( $cart_product_ids_array, $product_array, $general_rule_match ) {
+        public function dscpw_match_simple_products_rule(
+            $cart_product_ids_array,
+            $product_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $is_passed = array();
             foreach ( $product_array as $key => $product ) {
                 if ( 'is_equal_to' === $product['payments_conditions_is'] ) {
                     if ( !empty( $product['payment_conditions_values'] ) ) {
+                        $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
                             settype( $product_id, 'integer' );
+                            $_product = wc_get_product( $product_id );
+                            $product_name = $_product->get_name();
+                            $selected_products[] = $product_name;
                             if ( in_array( $product_id, $cart_product_ids_array, true ) ) {
                                 $is_passed[$key]['has_condition_based_on_product'] = 'yes';
                                 break;
@@ -559,11 +728,31 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                                 $is_passed[$key]['has_condition_based_on_product'] = 'no';
                             }
                         }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_product'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - is equal to -' . implode( ",", $selected_products ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - is equal to -' . implode( ",", $selected_products ),
+                                false
+                            );
+                        }
                     }
                 }
                 if ( 'not_in' === $product['payments_conditions_is'] ) {
                     if ( !empty( $product['payment_conditions_values'] ) ) {
+                        $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
+                            $_product = wc_get_product( $product_id );
+                            $product_name = $_product->get_name();
+                            $selected_products[] = $product_name;
                             settype( $product_id, 'integer' );
                             if ( in_array( $product_id, $cart_product_ids_array, true ) ) {
                                 $is_passed[$key]['has_condition_based_on_product'] = 'no';
@@ -571,6 +760,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             } else {
                                 $is_passed[$key]['has_condition_based_on_product'] = 'yes';
                             }
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_product'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - not in -' . implode( ",", $selected_products ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - not in -' . implode( ",", $selected_products ),
+                                false
+                            );
                         }
                     }
                 }
@@ -591,12 +796,21 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_variable_products_rule( $cart_product_ids_array, $variableproduct_array, $general_rule_match ) {
+        public function dscpw_match_variable_products_rule(
+            $cart_product_ids_array,
+            $variableproduct_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $is_passed = array();
             foreach ( $variableproduct_array as $key => $product ) {
                 if ( 'is_equal_to' === $product['payments_conditions_is'] ) {
                     if ( !empty( $product['payment_conditions_values'] ) ) {
+                        $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
+                            $_product = wc_get_product( $product_id );
+                            $product_name = $_product->get_name();
+                            $selected_products[] = $product_name;
                             settype( $product_id, 'integer' );
                             if ( in_array( $product_id, $cart_product_ids_array, true ) ) {
                                 $is_passed[$key]['has_condition_based_on_var_product'] = 'yes';
@@ -605,11 +819,31 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                                 $is_passed[$key]['has_condition_based_on_var_product'] = 'no';
                             }
                         }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_var_product'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - is equal to -' . implode( ",", $selected_products ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - is equal to -' . implode( ",", $selected_products ),
+                                false
+                            );
+                        }
                     }
                 }
                 if ( 'not_in' === $product['payments_conditions_is'] ) {
                     if ( !empty( $product['payment_conditions_values'] ) ) {
+                        $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
+                            $_product = wc_get_product( $product_id );
+                            $product_name = $_product->get_name();
+                            $selected_products[] = $product_name;
                             settype( $product_id, 'integer' );
                             if ( in_array( $product_id, $cart_product_ids_array, true ) ) {
                                 $is_passed[$key]['has_condition_based_on_var_product'] = 'no';
@@ -617,6 +851,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             } else {
                                 $is_passed[$key]['has_condition_based_on_var_product'] = 'yes';
                             }
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_var_product'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - not in -' . implode( ",", $selected_products ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'product',
+                                'Product - not in -' . implode( ",", $selected_products ),
+                                false
+                            );
                         }
                     }
                 }
@@ -639,7 +889,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_cart_subtotal_before_discount_rule( $wc_curr_version, $cart_total_array, $general_rule_match ) {
+        public function dscpw_match_cart_subtotal_before_discount_rule(
+            $wc_curr_version,
+            $cart_total_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             global $woocommerce, $woocommerce_wpml;
             if ( $wc_curr_version >= 3.0 ) {
                 $total = WC()->cart->get_subtotal();
@@ -664,6 +919,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_cart_total'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_cart_total'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - is equal to -' . $cart_total['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - is equal to -' . $cart_total['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'less_equal_to' === $cart_total['payments_conditions_is'] ) {
                     if ( !empty( $cart_total['payment_conditions_values'] ) ) {
@@ -672,6 +943,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_cart_total'] = 'no';
                         }
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_cart_total'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - less than or equal to -' . $cart_total['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - less than or equal to -' . $cart_total['payment_conditions_values'],
+                            false
+                        );
                     }
                 }
                 if ( 'less_then' === $cart_total['payments_conditions_is'] ) {
@@ -682,6 +969,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_cart_total'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_cart_total'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - less than -' . $cart_total['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - less than -' . $cart_total['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'greater_equal_to' === $cart_total['payments_conditions_is'] ) {
                     if ( !empty( $cart_total['payment_conditions_values'] ) ) {
@@ -690,6 +993,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_cart_total'] = 'no';
                         }
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_cart_total'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - greater than or equal to -' . $cart_total['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - greater than or equal to -' . $cart_total['payment_conditions_values'],
+                            false
+                        );
                     }
                 }
                 if ( 'greater_then' === $cart_total['payments_conditions_is'] ) {
@@ -701,6 +1020,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_cart_total'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_cart_total'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - greater than -' . $cart_total['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - greater than -' . $cart_total['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $cart_total['payments_conditions_is'] ) {
                     if ( !empty( $cart_total['payment_conditions_values'] ) ) {
@@ -709,6 +1044,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_cart_total'] = 'yes';
                         }
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_cart_total'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - not in -' . $cart_total['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'cart_total',
+                            'Cart Total - not in -' . $cart_total['payment_conditions_values'],
+                            false
+                        );
                     }
                 }
             }
@@ -731,7 +1082,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @uses     dscpw_remove_currency_symbol()
          * @uses     WC_Cart::get_subtotal()
          */
-        public function dscpw_match_cart_subtotal_after_discount_rule( $wc_curr_version, $cart_totalafter_array, $general_rule_match ) {
+        public function dscpw_match_cart_subtotal_after_discount_rule(
+            $wc_curr_version,
+            $cart_totalafter_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             global $woocommerce, $woocommerce_wpml;
             $get_cart = array();
             if ( $wc_curr_version >= 3.0 ) {
@@ -777,6 +1133,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                                 $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'no';
                             }
                         }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_cart_total_after'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - is equal to -' . $cart_totalafter['payment_conditions_values'],
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - is equal to -' . $cart_totalafter['payment_conditions_values'],
+                                false
+                            );
+                        }
                     }
                     if ( 'less_equal_to' === $cart_totalafter['payments_conditions_is'] ) {
                         if ( !empty( $cart_totalafter['payment_conditions_values'] ) ) {
@@ -785,6 +1157,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             } else {
                                 $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'no';
                             }
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_cart_total_after'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - less than or equal to -' . $cart_totalafter['payment_conditions_values'],
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - less than or equal to -' . $cart_totalafter['payment_conditions_values'],
+                                false
+                            );
                         }
                     }
                     if ( 'less_then' === $cart_totalafter['payments_conditions_is'] ) {
@@ -795,6 +1183,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                                 $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'no';
                             }
                         }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_cart_total_after'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - less than -' . $cart_totalafter['payment_conditions_values'],
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - less than -' . $cart_totalafter['payment_conditions_values'],
+                                false
+                            );
+                        }
                     }
                     if ( 'greater_equal_to' === $cart_totalafter['payments_conditions_is'] ) {
                         if ( !empty( $cart_totalafter['payment_conditions_values'] ) ) {
@@ -803,6 +1207,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             } else {
                                 $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'no';
                             }
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_cart_total_after'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - greater than or equal to -' . $cart_totalafter['payment_conditions_values'],
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - greater than or equal to -' . $cart_totalafter['payment_conditions_values'],
+                                false
+                            );
                         }
                     }
                     if ( 'greater_then' === $cart_totalafter['payments_conditions_is'] ) {
@@ -813,6 +1233,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                                 $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'no';
                             }
                         }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_cart_total_after'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - greater than -' . $cart_totalafter['payment_conditions_values'],
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - greater than -' . $cart_totalafter['payment_conditions_values'],
+                                false
+                            );
+                        }
                     }
                     if ( 'not_in' === $cart_totalafter['payments_conditions_is'] ) {
                         if ( !empty( $cart_totalafter['payment_conditions_values'] ) ) {
@@ -821,6 +1257,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             } else {
                                 $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'yes';
                             }
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_cart_total_after'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - not in -' . $cart_totalafter['payment_conditions_values'],
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'cart_total_after',
+                                'Cart Total After Discount - not in -' . $cart_totalafter['payment_conditions_values'],
+                                false
+                            );
                         }
                     }
                 }
@@ -841,7 +1293,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_method_rule( $wc_curr_version, $shipping_method_array, $general_rule_match ) {
+        public function dscpw_match_shipping_method_rule(
+            $wc_curr_version,
+            $shipping_method_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $is_passed = array();
             global $woocommerce;
             if ( $wc_curr_version >= 3.0 ) {
@@ -849,13 +1306,36 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             } else {
                 $chosen_shipping_methods = $woocommerce->session->chosen_shipping_methods;
             }
-            if ( !empty( $chosen_shipping_methods ) ) {
+            $all_shipping_methods = self::$admin_object->dscpw_list_out_shipping( 'general' );
+            if ( !empty( $shipping_method_array ) ) {
                 foreach ( $shipping_method_array as $key => $method ) {
+                    $selected_shipping_methods = array();
+                    if ( !empty( $method['payment_conditions_values'] ) && is_array( $method['payment_conditions_values'] ) ) {
+                        foreach ( $method['payment_conditions_values'] as $methods ) {
+                            $selected_shipping_methods[] = $all_shipping_methods[$methods];
+                        }
+                    }
                     if ( 'is_equal_to' === $method['payments_conditions_is'] ) {
                         if ( in_array( $chosen_shipping_methods[0], $method['payment_conditions_values'], true ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_method'] = 'yes';
                         } else {
                             $is_passed[$key]['has_condition_based_on_shipping_method'] = 'no';
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_shipping_method'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'shipping_method',
+                                'Shipping Method - is equal to -' . implode( ", ", $selected_shipping_methods ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'shipping_method',
+                                'Shipping Method - is equal to -' . implode( ", ", $selected_shipping_methods ),
+                                false
+                            );
                         }
                     }
                     if ( 'not_in' === $method['payments_conditions_is'] ) {
@@ -863,6 +1343,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_method'] = 'no';
                         } else {
                             $is_passed[$key]['has_condition_based_on_shipping_method'] = 'yes';
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_shipping_method'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'shipping_method',
+                                'Shipping Method - not in -' . implode( ", ", $selected_shipping_methods ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'shipping_method',
+                                'Shipping Method - not in -' . implode( ", ", $selected_shipping_methods ),
+                                false
+                            );
                         }
                     }
                 }
@@ -883,7 +1379,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_billing_firstname_rules( $attr, $billing_firstname_array, $general_rule_match ) {
+        public function dscpw_match_billing_firstname_rules(
+            $attr,
+            $billing_firstname_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_firstname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_firstname_array as $key => $firstname ) {
@@ -896,6 +1397,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_firstname'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - is equal to -' . $firstname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - is equal to -' . $firstname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $firstname['payments_conditions_is'] ) {
                     if ( !empty( $firstname['payment_conditions_values'] ) ) {
@@ -905,6 +1422,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_firstname'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - not in -' . $firstname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - not in -' . $firstname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $firstname['payments_conditions_is'] ) {
                     if ( empty( $get_firstname ) ) {
@@ -912,12 +1445,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_firstname'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $firstname['payments_conditions_is'] ) {
                     if ( !empty( $get_firstname ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_firstname'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_firstname'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_firstname',
+                            'Billing First Name - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -937,7 +1502,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_billing_lastname_rules( $attr, $billing_lastname_array, $general_rule_match ) {
+        public function dscpw_match_billing_lastname_rules(
+            $attr,
+            $billing_lastname_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_lastname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_lastname_array as $key => $lastname ) {
@@ -950,6 +1520,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_lastname'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - is equal to -' . $lastname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - is equal to -' . $lastname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $lastname['payments_conditions_is'] ) {
                     if ( !empty( $lastname['payment_conditions_values'] ) ) {
@@ -959,6 +1545,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_lastname'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - not in -' . $lastname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - not in -' . $lastname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $lastname['payments_conditions_is'] ) {
                     if ( empty( $get_lastname ) ) {
@@ -966,12 +1568,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_lastname'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $lastname['payments_conditions_is'] ) {
                     if ( !empty( $get_lastname ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_lastname'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_lastname'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_lastname',
+                            'Billing Last Name - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -991,7 +1625,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_billing_company_rules( $attr, $billing_company_array, $general_rule_match ) {
+        public function dscpw_match_billing_company_rules(
+            $attr,
+            $billing_company_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_company = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_company_array as $key => $company ) {
@@ -1004,6 +1643,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_company'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - is equal to -' . $company['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - is equal to -' . $company['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $company['payments_conditions_is'] ) {
                     if ( !empty( $company['payment_conditions_values'] ) ) {
@@ -1013,6 +1668,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_company'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - not in -' . $company['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - not in -' . $company['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $company['payments_conditions_is'] ) {
                     if ( empty( $get_company ) ) {
@@ -1020,12 +1691,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_company'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $company['payments_conditions_is'] ) {
                     if ( !empty( $get_company ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_company'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_company'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_company',
+                            'Billing Company - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1045,7 +1748,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_billing_address_1_rules( $attr, $billing_address_1_array, $general_rule_match ) {
+        public function dscpw_match_billing_address_1_rules(
+            $attr,
+            $billing_address_1_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_address_1 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_address_1_array as $key => $address_1 ) {
@@ -1058,6 +1766,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_address_1'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - is equal to -' . $address_1['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - is equal to -' . $address_1['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $address_1['payments_conditions_is'] ) {
                     if ( !empty( $address_1['payment_conditions_values'] ) ) {
@@ -1067,6 +1791,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_address_1'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - not in -' . $address_1['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - not in -' . $address_1['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $address_1['payments_conditions_is'] ) {
                     if ( empty( $get_address_1 ) ) {
@@ -1074,12 +1814,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_address_1'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $address_1['payments_conditions_is'] ) {
                     if ( !empty( $get_address_1 ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_address_1'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_address_1'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_1',
+                            'Billing Address 1 - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1099,7 +1871,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_billing_address_2_rules( $attr, $billing_address_2_array, $general_rule_match ) {
+        public function dscpw_match_billing_address_2_rules(
+            $attr,
+            $billing_address_2_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_address_2 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_address_2_array as $key => $address_2 ) {
@@ -1112,6 +1889,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_address_2'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - is equal to -' . $address_2['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - is equal to -' . $address_2['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $address_2['payments_conditions_is'] ) {
                     if ( !empty( $address_2['payment_conditions_values'] ) ) {
@@ -1121,6 +1914,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_address_2'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - not in -' . $address_2['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - not in -' . $address_2['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $address_2['payments_conditions_is'] ) {
                     if ( empty( $get_address_2 ) ) {
@@ -1128,12 +1937,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_address_2'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $address_2['payments_conditions_is'] ) {
                     if ( !empty( $get_address_2 ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_address_2'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_address_2'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_address_2',
+                            'Billing Address 2 - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1154,16 +1995,40 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @uses     WC_Customer::get_shipping_country()
          *
          */
-        public function dscpw_match_billing_country_rules( $billing_country_array, $general_rule_match ) {
+        public function dscpw_match_billing_country_rules( $billing_country_array, $general_rule_match, $rule_id ) {
             $selected_country = WC()->customer->get_billing_country();
+            $countries_obj = new WC_Countries();
+            $getCountries = $countries_obj->__get( 'countries' );
             $is_passed = array();
             foreach ( $billing_country_array as $key => $country ) {
+                $selected_country_name = array();
+                if ( !empty( $country['payment_conditions_values'] ) && is_array( $country['payment_conditions_values'] ) ) {
+                    foreach ( $country['payment_conditions_values'] as $country_code ) {
+                        $selected_country_name[] = $getCountries[$country_code];
+                    }
+                }
                 if ( 'is_equal_to' === $country['payments_conditions_is'] ) {
                     if ( !empty( $country['payment_conditions_values'] ) ) {
                         if ( in_array( $selected_country, $country['payment_conditions_values'], true ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_country'] = 'yes';
                         } else {
                             $is_passed[$key]['has_condition_based_on_billing_country'] = 'no';
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_billing_country'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'billing_country',
+                                'Billing Country - is equal to -' . implode( ", ", $selected_country_name ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'billing_country',
+                                'Billing Country - is equal to -' . implode( ", ", $selected_country_name ),
+                                false
+                            );
                         }
                     }
                     if ( empty( $country['payment_conditions_values'] ) ) {
@@ -1177,6 +2042,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_billing_country'] = 'yes';
                         }
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_country'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_country',
+                            'Billing Country - not in -' . implode( ", ", $selected_country_name ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_country',
+                            'Billing Country - not in -' . implode( ", ", $selected_country_name ),
+                            false
+                        );
                     }
                 }
             }
@@ -1196,7 +2077,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_billing_city_rules( $attr, $billing_city_array, $general_rule_match ) {
+        public function dscpw_match_billing_city_rules(
+            $attr,
+            $billing_city_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_city = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_city_array as $key => $city ) {
@@ -1216,6 +2102,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_city'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - is equal to - ' . implode( ", ", $city_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - is equal to - ' . implode( ", ", $city_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $city['payments_conditions_is'] ) {
                     if ( !empty( $city['payment_conditions_values'] ) ) {
@@ -1229,6 +2131,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_city'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - not in - ' . implode( ", ", $city_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - not in - ' . implode( ", ", $city_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $city['payments_conditions_is'] ) {
                     if ( empty( $get_city ) ) {
@@ -1236,12 +2154,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_city'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $city['payments_conditions_is'] ) {
                     if ( !empty( $get_city ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_city'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_city'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_city',
+                            'Billing City - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1262,7 +2212,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @uses     WC_Customer::get_billing_postcode()
          *
          */
-        public function dscpw_match_billing_postcode_rules( $billing_postcode_array, $general_rule_match ) {
+        public function dscpw_match_billing_postcode_rules( $billing_postcode_array, $general_rule_match, $rule_id ) {
             $selected_postcode = WC()->customer->get_billing_postcode();
             $is_passed = array();
             foreach ( $billing_postcode_array as $key => $postcode ) {
@@ -1280,6 +2230,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_postcode'] = 'no';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - is equal to -' . implode( ",", $postcode_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - is equal to -' . implode( ",", $postcode_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $postcode['payments_conditions_is'] ) {
                     if ( !empty( $postcode['payment_conditions_values'] ) ) {
@@ -1295,12 +2261,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_billing_postcode'] = 'yes';
                         }
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - not in -' . implode( ",", $postcode_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - not in -' . implode( ",", $postcode_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $postcode['payments_conditions_is'] ) {
                     if ( empty( $selected_postcode ) ) {
                         $is_passed[$key]['has_condition_based_on_billing_postcode'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_postcode'] = 'no';
+                    }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - is empty',
+                            false
+                        );
                     }
                 }
                 if ( 'is_not_empty' === $postcode['payments_conditions_is'] ) {
@@ -1309,9 +2307,154 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_billing_postcode'] = 'no';
                     }
+                    // set debug data.
+                    if ( $is_passed[$key]['has_condition_based_on_billing_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_postcode',
+                            'Postcode (Billing) - is not empty',
+                            false
+                        );
+                    }
                 }
             }
             $main_is_passed = $this->dscpw_check_all_passed_general_rule( $is_passed, 'has_condition_based_on_billing_postcode', $general_rule_match );
+            return $main_is_passed;
+        }
+
+        /**
+         * Match billing phone rules
+         *
+         * @param array $billing_phone_array
+         * @param string $general_rule_match
+         *
+         * @return array $is_passed
+         *
+         * @since    1.0.0
+         *
+         * @uses     WC_Customer::get_billing_phone()
+         *
+         */
+        public function dscpw_match_billing_phone_rules( $billing_phone_array, $general_rule_match, $rule_id ) {
+            $selected_phone = WC()->customer->get_billing_phone();
+            $is_passed = array();
+            foreach ( $billing_phone_array as $key => $phone ) {
+                if ( 'is_equal_to' === $phone['payments_conditions_is'] ) {
+                    if ( !empty( $phone['payment_conditions_values'] ) ) {
+                        $phonestr = str_replace( PHP_EOL, "<br/>", $phone['payment_conditions_values'] );
+                        $phone_val_array = explode( '<br/>', $phonestr );
+                        $new_phone_array = array();
+                        foreach ( $phone_val_array as $value ) {
+                            $new_phone_array[] = trim( $value );
+                        }
+                        $final_phone_array = array_map( 'trim', $new_phone_array );
+                        if ( in_array( $selected_phone, $final_phone_array, true ) ) {
+                            $is_passed[$key]['has_condition_based_on_billing_phone'] = 'yes';
+                        } else {
+                            $is_passed[$key]['has_condition_based_on_billing_phone'] = 'no';
+                        }
+                        // set debug data.
+                        if ( $is_passed[$key]['has_condition_based_on_billing_phone'] === 'yes' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'billing_phone',
+                                'Phone (Billing) - is equal to -' . implode( ",", $phone_val_array ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'billing_phone',
+                                'Phone (Billing) - is equal to -' . implode( ",", $phone_val_array ),
+                                false
+                            );
+                        }
+                    }
+                }
+                if ( 'not_in' === $phone['payments_conditions_is'] ) {
+                    if ( !empty( $phone['payment_conditions_values'] ) ) {
+                        $phonestr = str_replace( PHP_EOL, "<br/>", $phone['payment_conditions_values'] );
+                        $phone_val_array = explode( '<br/>', $phonestr );
+                        $new_phone_array = array();
+                        foreach ( $phone_val_array as $value ) {
+                            $new_phone_array[] = trim( $value );
+                        }
+                        $final_phone_array = array_map( 'trim', $new_phone_array );
+                        if ( in_array( $selected_phone, $final_phone_array, true ) ) {
+                            $is_passed[$key]['has_condition_based_on_billing_phone'] = 'no';
+                        } else {
+                            $is_passed[$key]['has_condition_based_on_billing_phone'] = 'yes';
+                        }
+                        if ( $is_passed[$key]['has_condition_based_on_billing_phone'] === 'no' ) {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'billing_phone',
+                                'Phone (Billing) - not in -' . implode( ",", $phone_val_array ),
+                                true
+                            );
+                        } else {
+                            $this->dscpw_conditions_debug_data(
+                                $rule_id,
+                                'billing_phone',
+                                'Phone (Billing) - not in -' . implode( ",", $phone_val_array ),
+                                false
+                            );
+                        }
+                    }
+                }
+                if ( 'is_empty' === $phone['payments_conditions_is'] ) {
+                    if ( empty( $selected_phone ) ) {
+                        $is_passed[$key]['has_condition_based_on_billing_phone'] = 'yes';
+                    } else {
+                        $is_passed[$key]['has_condition_based_on_billing_phone'] = 'no';
+                    }
+                    if ( $is_passed[$key]['has_condition_based_on_billing_phone'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_phone',
+                            'Phone (Billing) - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_phone',
+                            'Phone (Billing) - is empty',
+                            false
+                        );
+                    }
+                }
+                if ( 'is_not_empty' === $phone['payments_conditions_is'] ) {
+                    if ( !empty( $selected_phone ) ) {
+                        $is_passed[$key]['has_condition_based_on_billing_phone'] = 'yes';
+                    } else {
+                        $is_passed[$key]['has_condition_based_on_billing_phone'] = 'no';
+                    }
+                    if ( $is_passed[$key]['has_condition_based_on_billing_phone'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_phone',
+                            'Phone (Billing) - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_phone',
+                            'Phone (Billing) - is not empty',
+                            false
+                        );
+                    }
+                }
+            }
+            $main_is_passed = $this->dscpw_check_all_passed_general_rule( $is_passed, 'has_condition_based_on_billing_phone', $general_rule_match );
             return $main_is_passed;
         }
 
@@ -1351,7 +2494,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_firstname_rules( $attr, $shipping_firstname_array, $general_rule_match ) {
+        public function dscpw_match_shipping_firstname_rules(
+            $attr,
+            $shipping_firstname_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_firstname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_firstname_array as $key => $firstname ) {
@@ -1364,6 +2512,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_firstname'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - is equal to - ' . $firstname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - is equal to - ' . $firstname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $firstname['payments_conditions_is'] ) {
                     if ( !empty( $firstname['payment_conditions_values'] ) ) {
@@ -1373,6 +2537,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_firstname'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - not in - ' . $firstname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - not in - ' . $firstname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $firstname['payments_conditions_is'] ) {
                     if ( empty( $get_firstname ) ) {
@@ -1380,12 +2560,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_firstname'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $firstname['payments_conditions_is'] ) {
                     if ( !empty( $get_firstname ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_firstname'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_firstname'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_firstname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_firstname',
+                            'Shipping Firstname - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1405,7 +2617,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_lastname_rules( $attr, $shipping_lastname_array, $general_rule_match ) {
+        public function dscpw_match_shipping_lastname_rules(
+            $attr,
+            $shipping_lastname_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_lastname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_lastname_array as $key => $lastname ) {
@@ -1418,6 +2635,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_lastname'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - is equal to - ' . $lastname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - is equal to - ' . $lastname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $lastname['payments_conditions_is'] ) {
                     if ( !empty( $lastname['payment_conditions_values'] ) ) {
@@ -1427,6 +2660,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_lastname'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - not in - ' . $lastname['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - not in - ' . $lastname['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $lastname['payments_conditions_is'] ) {
                     if ( empty( $get_lastname ) ) {
@@ -1434,12 +2683,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_lastname'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $lastname['payments_conditions_is'] ) {
                     if ( !empty( $get_lastname ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_lastname'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_lastname'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_lastname'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_lastname',
+                            'Shipping Lastname - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1459,7 +2740,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_company_rules( $attr, $shipping_company_array, $general_rule_match ) {
+        public function dscpw_match_shipping_company_rules(
+            $attr,
+            $shipping_company_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_company = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_company_array as $key => $company ) {
@@ -1472,6 +2758,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_company'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - is equal to - ' . $company['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - is equal to - ' . $company['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $company['payments_conditions_is'] ) {
                     if ( !empty( $company['payment_conditions_values'] ) ) {
@@ -1481,6 +2783,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_company'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - not in - ' . $company['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - not in - ' . $company['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $company['payments_conditions_is'] ) {
                     if ( empty( $get_company ) ) {
@@ -1488,12 +2806,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_company'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $company['payments_conditions_is'] ) {
                     if ( !empty( $get_company ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_company'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_company'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_company'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_company',
+                            'Shipping Company - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1513,7 +2863,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_address_1_rules( $attr, $shipping_address_1_array, $general_rule_match ) {
+        public function dscpw_match_shipping_address_1_rules(
+            $attr,
+            $shipping_address_1_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_address_1 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_address_1_array as $key => $address_1 ) {
@@ -1526,6 +2881,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_address_1'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - is equal to - ' . $address_1['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - is equal to - ' . $address_1['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $address_1['payments_conditions_is'] ) {
                     if ( !empty( $address_1['payment_conditions_values'] ) ) {
@@ -1535,6 +2906,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_address_1'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - not in - ' . $address_1['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - not in - ' . $address_1['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $address_1['payments_conditions_is'] ) {
                     if ( empty( $get_address_1 ) ) {
@@ -1542,12 +2929,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_address_1'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $address_1['payments_conditions_is'] ) {
                     if ( !empty( $get_address_1 ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_address_1'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_address_1'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_1'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_1',
+                            'Shipping Address 1 - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1567,7 +2986,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_address_2_rules( $attr, $shipping_address_2_array, $general_rule_match ) {
+        public function dscpw_match_shipping_address_2_rules(
+            $attr,
+            $shipping_address_2_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_address_2 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_address_2_array as $key => $address_2 ) {
@@ -1580,6 +3004,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_address_2'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - is equal to - ' . $address_2['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - is equal to - ' . $address_2['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $address_2['payments_conditions_is'] ) {
                     if ( !empty( $address_2['payment_conditions_values'] ) ) {
@@ -1589,6 +3029,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_address_2'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - not in - ' . $address_2['payment_conditions_values'],
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - not in - ' . $address_2['payment_conditions_values'],
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $address_2['payments_conditions_is'] ) {
                     if ( empty( $get_address_2 ) ) {
@@ -1596,12 +3052,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_address_2'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $address_2['payments_conditions_is'] ) {
                     if ( !empty( $get_address_2 ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_address_2'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_address_2'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_address_2'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_address_2',
+                            'Shipping Address 2 - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1622,10 +3110,18 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @uses     WC_Customer::get_shipping_country()
          *
          */
-        public function dscpw_match_shipping_country_rules( $shipping_country_array, $general_rule_match ) {
+        public function dscpw_match_shipping_country_rules( $shipping_country_array, $general_rule_match, $rule_id ) {
             $selected_country = WC()->customer->get_shipping_country();
             $is_passed = array();
+            $countries_obj = new WC_Countries();
+            $getCountries = $countries_obj->__get( 'countries' );
             foreach ( $shipping_country_array as $key => $country ) {
+                $selected_country_name = array();
+                if ( !empty( $country['payment_conditions_values'] ) && is_array( $country['payment_conditions_values'] ) ) {
+                    foreach ( $country['payment_conditions_values'] as $country_code ) {
+                        $selected_country_name[] = $getCountries[$country_code];
+                    }
+                }
                 if ( 'is_equal_to' === $country['payments_conditions_is'] ) {
                     if ( !empty( $country['payment_conditions_values'] ) ) {
                         if ( in_array( $selected_country, $country['payment_conditions_values'], true ) ) {
@@ -1637,6 +3133,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     if ( empty( $country['payment_conditions_values'] ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_country'] = 'yes';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_country'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_country',
+                            'Shipping Country - is equal to - ' . implode( ', ', $selected_country_name ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_country',
+                            'Shipping Country - is equal to - ' . implode( ', ', $selected_country_name ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $country['payments_conditions_is'] ) {
                     if ( !empty( $country['payment_conditions_values'] ) ) {
@@ -1645,6 +3157,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_shipping_country'] = 'yes';
                         }
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_country'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_country',
+                            'Shipping Country - not in - ' . implode( ', ', $selected_country_name ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_country',
+                            'Shipping Country - not in - ' . implode( ', ', $selected_country_name ),
+                            false
+                        );
                     }
                 }
             }
@@ -1664,7 +3192,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.0.0
          *
          */
-        public function dscpw_match_shipping_city_rules( $attr, $shipping_city_array, $general_rule_match ) {
+        public function dscpw_match_shipping_city_rules(
+            $attr,
+            $shipping_city_array,
+            $general_rule_match,
+            $rule_id
+        ) {
             $get_city = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_city_array as $key => $city ) {
@@ -1684,6 +3217,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_city'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - is equal to - ' . implode( ', ', $new_city_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - is equal to - ' . implode( ', ', $new_city_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $city['payments_conditions_is'] ) {
                     if ( !empty( $city['payment_conditions_values'] ) ) {
@@ -1697,6 +3246,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_city'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - not in - ' . implode( ', ', $city_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - not in - ' . implode( ', ', $city_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $city['payments_conditions_is'] ) {
                     if ( empty( $get_city ) ) {
@@ -1704,12 +3269,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_city'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $city['payments_conditions_is'] ) {
                     if ( !empty( $get_city ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_city'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_city'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_city'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_city',
+                            'Shipping City - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1730,7 +3327,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @uses     WC_Customer::get_shipping_postcode()
          *
          */
-        public function dscpw_match_shipping_postcode_rules( $shipping_postcode_array, $general_rule_match ) {
+        public function dscpw_match_shipping_postcode_rules( $shipping_postcode_array, $general_rule_match, $rule_id ) {
             $selected_postcode = WC()->customer->get_shipping_postcode();
             $is_passed = array();
             foreach ( $shipping_postcode_array as $key => $postcode ) {
@@ -1748,6 +3345,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_postcode'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - is equal to - ' . implode( ',', $postcode_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - is equal to - ' . implode( ',', $postcode_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $postcode['payments_conditions_is'] ) {
                     if ( !empty( $postcode['payment_conditions_values'] ) ) {
@@ -1763,6 +3376,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_shipping_postcode'] = 'yes';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - not in - ' . implode( ',', $postcode_val_array ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - not in - ' . implode( ',', $postcode_val_array ),
+                            false
+                        );
+                    }
                 }
                 if ( 'is_empty' === $postcode['payments_conditions_is'] ) {
                     if ( empty( $selected_postcode ) ) {
@@ -1770,12 +3399,44 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_postcode'] = 'no';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - is empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - is empty',
+                            false
+                        );
+                    }
                 }
                 if ( 'is_not_empty' === $postcode['payments_conditions_is'] ) {
                     if ( !empty( $selected_postcode ) ) {
                         $is_passed[$key]['has_condition_based_on_shipping_postcode'] = 'yes';
                     } else {
                         $is_passed[$key]['has_condition_based_on_shipping_postcode'] = 'no';
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_shipping_postcode'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - is not empty',
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_postcode',
+                            'Shipping Postcode - is not empty',
+                            false
+                        );
                     }
                 }
             }
@@ -1794,10 +3455,25 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * @since    1.1.1
          *
          */
-        public function dscpw_match_day_of_week_rules( $day_of_week_array, $general_rule_match ) {
+        public function dscpw_match_day_of_week_rules( $day_of_week_array, $general_rule_match, $rule_id ) {
             $today = strtolower( gmdate( "D" ) );
             $is_passed = array();
+            $get_all_day_of_week = array(
+                'sun' => esc_html__( 'Sunday', 'conditional-payments' ),
+                'mon' => esc_html__( 'Monday', 'conditional-payments' ),
+                'tue' => esc_html__( 'Tuesday', 'conditional-payments' ),
+                'wed' => esc_html__( 'Wednesday', 'conditional-payments' ),
+                'thu' => esc_html__( 'Thursday', 'conditional-payments' ),
+                'fri' => esc_html__( 'Friday', 'conditional-payments' ),
+                'sat' => esc_html__( 'Saturday', 'conditional-payments' ),
+            );
             foreach ( $day_of_week_array as $key => $day ) {
+                $all_day_name = array();
+                if ( !empty( $day['payment_conditions_values'] ) && is_array( $day['payment_conditions_values'] ) ) {
+                    foreach ( $day['payment_conditions_values'] as $day_value ) {
+                        $all_day_name[] = $get_all_day_of_week[$day_value];
+                    }
+                }
                 if ( 'is_equal_to' === $day['payments_conditions_is'] ) {
                     if ( !empty( $day['payment_conditions_values'] ) ) {
                         if ( in_array( $today, $day['payment_conditions_values'], true ) ) {
@@ -1809,6 +3485,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     if ( empty( $day['payment_conditions_values'] ) ) {
                         $is_passed[$key]['has_condition_based_on_day_of_week'] = 'yes';
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_day_of_week'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'day_of_week',
+                            'Day of Week - is equal to - ' . implode( ', ', $all_day_name ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'day_of_week',
+                            'Day of Week - is equal to - ' . implode( ', ', $all_day_name ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $day['payments_conditions_is'] ) {
                     if ( !empty( $day['payment_conditions_values'] ) ) {
@@ -1817,6 +3509,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_day_of_week'] = 'yes';
                         }
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_day_of_week'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'day_of_week',
+                            'Day of Week - not in - ' . implode( ', ', $all_day_name ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'day_of_week',
+                            'Day of Week - not in - ' . implode( ', ', $all_day_name ),
+                            false
+                        );
                     }
                 }
             }
@@ -1834,7 +3542,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          *
          * @since    1.1.1
          */
-        public function dscpw_match_date_rules( $date_array, $general_rule_match ) {
+        public function dscpw_match_date_rules( $date_array, $general_rule_match, $rule_id ) {
             $is_passed = array();
             $current_date = strtotime( gmdate( 'd-m-Y' ) );
             foreach ( $date_array as $key => $date ) {
@@ -1847,6 +3555,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_date'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_date'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - is equal to - ' . gmdate( 'd-m-Y', $selected_date ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - is equal to - ' . gmdate( 'd-m-Y', $selected_date ),
+                            false
+                        );
+                    }
                 }
                 if ( 'less_equal_to' === $date['payments_conditions_is'] ) {
                     if ( !empty( $selected_date ) ) {
@@ -1855,6 +3579,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_date'] = 'no';
                         }
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_date'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - less than or equal to - ' . gmdate( 'd-m-Y', $selected_date ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - less than or equal to - ' . gmdate( 'd-m-Y', $selected_date ),
+                            false
+                        );
                     }
                 }
                 if ( 'less_then' === $date['payments_conditions_is'] ) {
@@ -1865,6 +3605,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_date'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_date'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - less than - ' . gmdate( 'd-m-Y', $selected_date ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - less than - ' . gmdate( 'd-m-Y', $selected_date ),
+                            false
+                        );
+                    }
                 }
                 if ( 'greater_equal_to' === $date['payments_conditions_is'] ) {
                     if ( !empty( $selected_date ) ) {
@@ -1873,6 +3629,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_date'] = 'no';
                         }
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_date'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - greater than or equal to - ' . gmdate( 'd-m-Y', $selected_date ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - greater than or equal to - ' . gmdate( 'd-m-Y', $selected_date ),
+                            false
+                        );
                     }
                 }
                 if ( 'greater_then' === $date['payments_conditions_is'] ) {
@@ -1883,6 +3655,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed[$key]['has_condition_based_on_date'] = 'no';
                         }
                     }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_date'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - greater than - ' . gmdate( 'd-m-Y', $selected_date ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - greater than - ' . gmdate( 'd-m-Y', $selected_date ),
+                            false
+                        );
+                    }
                 }
                 if ( 'not_in' === $date['payments_conditions_is'] ) {
                     if ( !empty( $selected_date ) ) {
@@ -1891,6 +3679,22 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         } else {
                             $is_passed[$key]['has_condition_based_on_date'] = 'yes';
                         }
+                    }
+                    //set debug data
+                    if ( $is_passed[$key]['has_condition_based_on_date'] === 'yes' ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - not in - ' . gmdate( 'd-m-Y', $selected_date ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'date',
+                            'Date - not in - ' . gmdate( 'd-m-Y', $selected_date ),
+                            false
+                        );
                     }
                 }
             }
@@ -1955,6 +3759,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $all_methods = array();
             $sm_posts = self::$admin_object->dscpw_get_conditional_payments_rules();
             $default_disable_payments = array();
+            $this->dscpw_debug_gateways( $all_available_payments, 'before' );
             if ( !empty( $sm_posts ) ) {
                 foreach ( $sm_posts as $sm_post ) {
                     // Check if payments conditions match
@@ -2009,7 +3814,187 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                 }
             }
+            $this->dscpw_debug_gateways( $available_payments_methods, 'after' );
             return $available_payments_methods;
+        }
+
+        /**
+         * Record gateways
+         *
+         * @param array $gateways
+         * @param string $mode
+         *
+         * @since 1.2.1
+         *
+         */
+        public function dscpw_debug_gateways( $gateways, $mode ) {
+            $dscpw_gateways = [];
+            if ( is_array( $gateways ) ) {
+                foreach ( $gateways as $gateway ) {
+                    $dscpw_gateways[$gateway->id] = sprintf( '%s (%s)', $gateway->get_method_title(), $gateway->id );
+                }
+            }
+            $this->debug_data['payment_methods'][$mode] = $dscpw_gateways;
+        }
+
+        /**
+         * Check if debug is enabled
+         *
+         * @return bool
+         *
+         * @since 1.2.1
+         *
+         */
+        public function debug_is_enabled() {
+            $dscpw_enable_debug = get_option( 'dscpw_enable_debug', true );
+            if ( $dscpw_enable_debug === 'yes' ) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        /**
+         * Set fragment for debug data.
+         *
+         * @return string
+         *
+         * @since 1.2.1
+         *
+         */
+        public function dscpw_debug_fragment( $fragments ) {
+            $fragments['#dscpw-debug'] = $this->dscpw_output_debug_checkout( false );
+            return $fragments;
+        }
+
+        /**
+         * Check if the current checkout is using blocks
+         *
+         * @return bool
+         *
+         * @since 1.2.1
+         *
+         */
+        public function dscpw_is_blocks_checkout() {
+            if ( class_exists( 'Automattic\\WooCommerce\\Blocks\\Utils\\CartCheckoutUtils' ) && is_callable( ['Automattic\\WooCommerce\\Blocks\\Utils\\CartCheckoutUtils', 'is_checkout_block_default'] ) && \Automattic\WooCommerce\Blocks\Utils\CartCheckoutUtils::is_checkout_block_default() ) {
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Render debug information in the blocks-based checkout.
+         *
+         * @return string
+         *
+         * @since 1.2.1
+         *
+         */
+        public function dscpw_render_block( $content ) {
+            // phpcs:disable
+            if ( !$this->block_rendered && $this->dscpw_is_blocks_checkout() && function_exists( 'is_checkout' ) && is_checkout() && !isset( $_GET['pay_for_order'] ) && !isset( $_GET['order-received'] ) && !is_order_received_page() ) {
+                $this->dscpw_output_debug_checkout( true );
+            }
+            // phpcs:enable
+            $this->block_rendered = true;
+            return $content;
+        }
+
+        /**
+         * Output debug data
+         *
+         * @return string
+         *
+         * @since 1.2.1
+         *
+         */
+        public function dscpw_output_debug_checkout( $echo = true ) {
+            $debug = $this->debug_data;
+            $available_gateways = WC()->payment_gateways()->payment_gateways();
+            // Add results to debug data.
+            if ( !empty( $debug['rulesets'] ) && is_array( $debug['rulesets'] ) ) {
+                foreach ( $debug['rulesets'] as $ruleset_id => $data ) {
+                    $results = array_column( $data['conditions'], 'result' );
+                    if ( in_array( false, $results, true ) || in_array( '', $results, true ) ) {
+                        $debug['rulesets'][$ruleset_id]['result'] = false;
+                        // Set to 'false' if any result is false or empty
+                    } else {
+                        $debug['rulesets'][$ruleset_id]['result'] = true;
+                        // All conditions are true
+                    }
+                }
+            }
+            // Add actions to debug data.
+            if ( !empty( $debug['rulesets'] ) && is_array( $debug['rulesets'] ) ) {
+                foreach ( $debug['rulesets'] as $ruleset_id => $data ) {
+                    $cp_actions_metabox = get_post_meta( $ruleset_id, 'cp_actions_metabox', true );
+                    $index = 0;
+                    if ( !empty( $cp_actions_metabox ) && is_array( $cp_actions_metabox ) ) {
+                        foreach ( $cp_actions_metabox as $cp_action ) {
+                            if ( $cp_action['conditional_payments_actions'] === 'add_payment_method_fee' ) {
+                                $debug['rulesets'][$ruleset_id]['action'][$index] = array(
+                                    'desc'   => 'Add payment method fee ' . $cp_action['payment_actions_values']['amount'] . ' ' . $cp_action['payment_actions_values']['per-cur'],
+                                    'status' => $debug['rulesets'][$ruleset_id]['result'],
+                                );
+                            }
+                            if ( $cp_action['conditional_payments_actions'] === 'disable_payments' ) {
+                                $method_name = array();
+                                foreach ( $cp_action['payment_actions_values'] as $payment_method ) {
+                                    $method_name[] = $available_gateways[$payment_method]->title;
+                                }
+                                $debug['rulesets'][$ruleset_id]['action'][$index] = array(
+                                    'desc'   => 'Disable payment method - ' . implode( ', ', $method_name ),
+                                    'status' => $debug['rulesets'][$ruleset_id]['result'],
+                                );
+                            }
+                            if ( $cp_action['conditional_payments_actions'] === 'enable_payments' ) {
+                                $method_name = array();
+                                foreach ( $cp_action['payment_actions_values'] as $payment_method ) {
+                                    $method_name[] = $available_gateways[$payment_method]->title;
+                                }
+                                $debug['rulesets'][$ruleset_id]['action'][$index] = array(
+                                    'desc'   => 'Enable payment method - ' . implode( ', ', $method_name ),
+                                    'status' => $debug['rulesets'][$ruleset_id]['result'],
+                                );
+                            }
+                            $index++;
+                        }
+                    }
+                }
+            }
+            ob_start();
+            include plugin_dir_path( dirname( __FILE__ ) ) . 'public/templates/dscpw-debug.php';
+            $contents = ob_get_clean();
+            if ( $this->debug_is_enabled() && $echo ) {
+                echo wp_kses_post( $contents );
+            } else {
+                return $contents;
+            }
+        }
+
+        /**
+         * Add debug output to checkout block
+         *
+         * @since 1.2.1
+         *
+         */
+        public function dscpw_add_debug_output_to_checkout_block() {
+            woocommerce_store_api_register_endpoint_data( array(
+                'endpoint'      => Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER,
+                'namespace'     => 'dscpw_debug_data',
+                'data_callback' => function () {
+                    $available_gateways = WC()->payment_gateways()->payment_gateways();
+                    $gateways = array();
+                    foreach ( $available_gateways as $key => $gateway ) {
+                        $gateways[$key] = sprintf( '%s (%s)', $gateway->get_method_title(), $gateway->id );
+                    }
+                    return array(
+                        'payment_methods' => $gateways,
+                        'data'            => $this->dscpw_output_debug_checkout( false ),
+                    );
+                },
+                'schema_type'   => ARRAY_A,
+            ) );
         }
 
         /**
@@ -2140,6 +4125,25 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             } else {
                 return null;
             }
+        }
+
+        /**
+         * Get all the rules
+         *
+         * @since  1.2.1
+         *
+         * @return array $rules
+         */
+        public function dscpw_conditions_debug_data(
+            $rule_id,
+            $conditions,
+            $desc,
+            $result
+        ) {
+            $this->debug_data['rulesets'][$rule_id]['conditions'][$conditions] = array(
+                'desc'   => $desc,
+                'result' => $result,
+            );
         }
 
     }

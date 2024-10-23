@@ -1,7 +1,10 @@
 (function ($) {
 	'use strict';
-
 	$(document).ready(function () {
+		$('.woocommerce-billing-fields input, .woocommerce-billing-fields select, .woocommerce-billing-fields textarea,.woocommerce-shipping-fields input, .woocommerce-shipping-fields select, .woocommerce-shipping-fields textarea').on('change', function() {
+			$('body').trigger('update_checkout');
+		});
+
 		function conditional_payments_trigger() {
 			if ( typeof dscpw_conditional_payments_settings !== 'undefined' ) {
 				$.each( dscpw_conditional_payments_settings.name_address_fields, function( index, value ) {

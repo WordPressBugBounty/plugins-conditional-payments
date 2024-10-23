@@ -159,6 +159,29 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
         }
 
         /**
+         * Save debug settings
+         *
+         * @since    1.2.1
+         *
+         */
+        private static function dscpw_save_debug_settings() {
+            $get_section = filter_input( INPUT_GET, 'section', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+            $dscpw_save = filter_input( INPUT_POST, 'dscpw_save_debug', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+            $woocommerce_save_method_nonce = filter_input( INPUT_POST, 'woocommerce_save_method_nonce', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+            if ( "dscpw_conditional_payments" === $get_section && isset( $dscpw_save ) ) {
+                if ( empty( $woocommerce_save_method_nonce ) || !wp_verify_nonce( sanitize_text_field( $woocommerce_save_method_nonce ), 'woocommerce_save_method' ) ) {
+                    self::$admin_object->dscpw_updated_message( 'nonce_check', $get_section, '' );
+                }
+                $dscpw_enable_debug = filter_input( INPUT_POST, 'dscpw_enable_debug', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+                if ( isset( $dscpw_enable_debug ) ) {
+                    update_option( 'dscpw_enable_debug', 'yes' );
+                } else {
+                    update_option( 'dscpw_enable_debug', 'no' );
+                }
+            }
+        }
+
+        /**
          * Save conditional payments method when add or edit
          *
          * @param int $method_id
@@ -391,6 +414,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
                 'section' => 'dscpw_conditional_payments',
                 'action'  => 'add',
             ), admin_url( 'admin.php' ) );
+            $allowed_tooltip_html = wp_kses_allowed_html( 'post' )['span'];
+            // Upgrade to pro popup
+            if ( !(cp_fs()->is__premium_only() && cp_fs()->can_use_premium_code()) ) {
+                require_once DSCPW_PLUGIN_PATH . 'admin/partials/dots-upgrade-popup.php';
+            }
             ?>
 			<div class="dscpw-section-left">
 	            <h1 class="wp-heading-inline">
@@ -420,7 +448,41 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
             $DSCPW_Conditional_Payments_Table->display();
             ?>
 			</div>
-
+			<div class="dscpw-section-advanced-settings">
+				<h2 class="wp-heading-inline"><?php 
+            esc_html_e( 'Advanced Settings', 'conditional-payments' );
+            ?></h2>
+				<?php 
+            ?>
+					<table class="form-table table-outer genral-settings-tbl">
+						<tbody>
+							<tr valign="top">
+								<th class="titledesc" scope="row">
+									<label for="dscpw_enable_debug"><?php 
+            esc_html_e( 'Debug Mode', 'conditional-payments' );
+            ?><span class="dscpw-pro-label"></span><?php 
+            echo wp_kses( wc_help_tip( esc_html__( 'Debug mode shows passed conditions and which actions were run in the checkout.', 'conditional-payments' ) ), array(
+                'span' => $allowed_tooltip_html,
+            ) );
+            ?></label>
+								</th>
+								<td class="forminp">
+									<label class="dscpw_toggle_switch">
+										<input type="checkbox" name="dscpw_enable_debug" value="on" disabled>
+										<span class="dscpw_toggle_btn dscpw-pro-feature"></span>
+									</label>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<p class="submit">
+						<input type="submit" class="button button-primary" name="dscpw_save_debug" value="<?php 
+            esc_attr_e( 'Save Changes', 'conditional-payments' );
+            ?>" disabled>
+					</p>
+					<?php 
+            ?>
+			</div>
 			<?php 
         }
 

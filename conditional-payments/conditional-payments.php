@@ -4,7 +4,7 @@
  * Plugin Name: Conditional Payment Methods for WooCommerce
  * Plugin URI: https://www.thedotstore.com/conditional-payments-for-woocommerce/
  * Description: Allows store owners to restrict payment methods based on the various conditions!
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: theDotstore
  * Author URI: https://www.thedotstore.com/
  * License: GPL-3.0+
@@ -14,8 +14,8 @@
  * Requires Plugins: woocommerce
  * 
  * WC requires at least: 4.5
- * WP tested up to:      6.6.1
- * WC tested up to:      9.2.3
+ * WP tested up to:      6.6.2
+ * WC tested up to:      9.3.3
  * Requires PHP:         5.6
  * Requires at least:    5.0
  */
@@ -63,10 +63,9 @@ if ( function_exists( 'cp_fs' ) ) {
         // Signal that SDK was initiated.
         do_action( 'cp_fs_loaded' );
     }
-    // ... Your plugin's main file logic ...
 }
 if ( !defined( 'DSCPW_PLUGIN_VERSION' ) ) {
-    define( 'DSCPW_PLUGIN_VERSION', '1.2.0' );
+    define( 'DSCPW_PLUGIN_VERSION', '1.2.1' );
 }
 if ( !defined( 'DSCPW_PLUGIN_URL' ) ) {
     define( 'DSCPW_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

@@ -93,7 +93,8 @@ body .select2-container.select2-container--default .select2-dropdown .select2-re
 .dscpw-section-left .cpw-btn-with-brand-color:hover,.dscpw-section-left .cpw-btn-with-brand-color:focus{border:1px solid var(--dots-primary);background-color:#FFFFFF;box-shadow:none;color:var(--dots-primary);padding:7px 10px;border-radius:5px;}
 .dscpw-section-main .button,.dscpw-section-main .button:focus,.dscpw-section-left .button,.dscpw-section-left .button:focus{border-color:#8c8f94;color:#000;background-color:#fff;transition:all 0.25s ease;outline:none;box-shadow:none;}
 .dscpw-section-main .button:hover,.dscpw-section-left .button:hover{border-color:var(--dots-primary);color:var(--dots-primary);background-color:#fff;}
-.dscpw-section-main .button-primary,.dscpw-section-main .button-primary:hover,.dscpw-section-main .button-primary:focus{background-color:var(--dots-primary);border:1px solid var(--dots-primary);color:#fff;box-shadow:none;}
+.dscpw-section-main .button-primary,.dscpw-section-main .button-primary:hover,.dscpw-section-main .button-primary:focus,.dscpw-section-advanced-settings .button-primary,.dscpw-section-advanced-settings .button-primary:hover,.dscpw-section-advanced-settings .button-primary:focus{background-color:var(--dots-primary);border:1px solid var(--dots-primary);color:#fff;box-shadow:none;}
+.dscpw-section-advanced-settings{padding-top:40px;}
 
 /* Plugin other section new design */
 body{background-color: #F2F2F3}
@@ -137,8 +138,9 @@ body.dscpw-modal-visible{overflow:hidden;}
 .upgrade-to-pro-modal-main .pro-feature-list li:last-child{padding-bottom:0}
 
 /* Upgrade to pro changes */
-.dscpw-section-main .dscpw-pro-label{position:relative;cursor:pointer;display:inline-block;margin:1px 0 0 6px;}
-.dscpw-section-main .dscpw-pro-label::before{content:"🔒";display:inline-block;font-size:15px;line-height:normal;}
+.dscpw-section-advanced-settings .dscpw-pro-label, .dscpw-section-main .dscpw-pro-label{position:relative;cursor:pointer;display:inline-block;margin:1px 0 0 6px;}
+.dscpw-section-advanced-settings .dscpw-pro-label::before, .dscpw-section-main .dscpw-pro-label::before{content:"🔒";display:inline-block;font-size:15px;line-height:normal;}
+.dscpw-pro-feature{opacity:0.6;}
 
 /* Media css */
 @media only screen and (max-width:1250px){
