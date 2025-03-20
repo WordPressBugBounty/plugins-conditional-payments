@@ -186,7 +186,6 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
          *
          * @param int $method_id
          *
-         * @return bool false when nonce is not verified
          * @uses dscpw_count_cp_method()
          *
          * @since    1.0.0

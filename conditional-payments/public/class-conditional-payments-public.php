@@ -632,6 +632,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                 }
             }
+            return false;
         }
 
         /**
@@ -713,6 +714,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
         ) {
             $is_passed = array();
             foreach ( $product_array as $key => $product ) {
+                $is_passed[$key]['has_condition_based_on_product'] = 'no';
                 if ( 'is_equal_to' === $product['payments_conditions_is'] ) {
                     if ( !empty( $product['payment_conditions_values'] ) ) {
                         $selected_products = array();
@@ -804,6 +806,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
         ) {
             $is_passed = array();
             foreach ( $variableproduct_array as $key => $product ) {
+                $is_passed[$key]['has_condition_based_on_var_product'] = 'no';
                 if ( 'is_equal_to' === $product['payments_conditions_is'] ) {
                     if ( !empty( $product['payment_conditions_values'] ) ) {
                         $selected_products = array();
@@ -897,9 +900,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
         ) {
             global $woocommerce, $woocommerce_wpml;
             if ( $wc_curr_version >= 3.0 ) {
-                $total = WC()->cart->get_subtotal();
+                $total = $this->dscpw_remove_currency_symbol( WC()->cart->get_cart_subtotal() );
             } else {
-                $total = $woocommerce->cart->get_subtotal();
+                $total = $this->dscpw_remove_currency_symbol( $woocommerce->cart->get_cart_subtotal() );
             }
             if ( isset( $woocommerce_wpml ) && !empty( $woocommerce_wpml->multi_currency ) ) {
                 $new_total = $woocommerce_wpml->multi_currency->prices->unconvert_price_amount( $total );
@@ -910,6 +913,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             }
             $is_passed = array();
             foreach ( $cart_total_array as $key => $cart_total ) {
+                $is_passed[$key]['has_condition_based_on_cart_total'] = 'no';
                 settype( $cart_total['payment_conditions_values'], 'float' );
                 if ( 'is_equal_to' === $cart_total['payments_conditions_is'] ) {
                     if ( !empty( $cart_total['payment_conditions_values'] ) ) {
@@ -1124,6 +1128,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     $new_float_price = floatval( $new_resultprice );
                 }
                 foreach ( $cart_totalafter_array as $key => $cart_totalafter ) {
+                    $is_passed[$key]['has_condition_based_on_cart_total_after'] = 'no';
                     settype( $cart_totalafter['payment_conditions_values'], 'float' );
                     if ( 'is_equal_to' === $cart_totalafter['payments_conditions_is'] ) {
                         if ( !empty( $cart_totalafter['payment_conditions_values'] ) ) {
@@ -1309,6 +1314,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $all_shipping_methods = self::$admin_object->dscpw_list_out_shipping( 'general' );
             if ( !empty( $shipping_method_array ) ) {
                 foreach ( $shipping_method_array as $key => $method ) {
+                    $is_passed[$key]['has_condition_based_on_shipping_method'] = 'no';
                     $selected_shipping_methods = array();
                     if ( !empty( $method['payment_conditions_values'] ) && is_array( $method['payment_conditions_values'] ) ) {
                         foreach ( $method['payment_conditions_values'] as $methods ) {
@@ -1388,6 +1394,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_firstname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_firstname_array as $key => $firstname ) {
+                $is_passed[$key]['has_condition_based_on_billing_firstname'] = 'no';
                 settype( $firstname['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $firstname['payments_conditions_is'] ) {
                     if ( !empty( $firstname['payment_conditions_values'] ) ) {
@@ -1511,6 +1518,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_lastname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_lastname_array as $key => $lastname ) {
+                $is_passed[$key]['has_condition_based_on_billing_lastname'] = 'no';
                 settype( $lastname['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $lastname['payments_conditions_is'] ) {
                     if ( !empty( $lastname['payment_conditions_values'] ) ) {
@@ -1634,6 +1642,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_company = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_company_array as $key => $company ) {
+                $is_passed[$key]['has_condition_based_on_billing_company'] = 'no';
                 settype( $company['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $company['payments_conditions_is'] ) {
                     if ( !empty( $company['payment_conditions_values'] ) ) {
@@ -1757,6 +1766,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_address_1 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_address_1_array as $key => $address_1 ) {
+                $is_passed[$key]['has_condition_based_on_billing_address_1'] = 'no';
                 settype( $address_1['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $address_1['payments_conditions_is'] ) {
                     if ( !empty( $address_1['payment_conditions_values'] ) ) {
@@ -1880,6 +1890,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_address_2 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_address_2_array as $key => $address_2 ) {
+                $is_passed[$key]['has_condition_based_on_billing_address_2'] = 'no';
                 settype( $address_2['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $address_2['payments_conditions_is'] ) {
                     if ( !empty( $address_2['payment_conditions_values'] ) ) {
@@ -2001,6 +2012,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $getCountries = $countries_obj->__get( 'countries' );
             $is_passed = array();
             foreach ( $billing_country_array as $key => $country ) {
+                $is_passed[$key]['has_condition_based_on_billing_country'] = 'no';
                 $selected_country_name = array();
                 if ( !empty( $country['payment_conditions_values'] ) && is_array( $country['payment_conditions_values'] ) ) {
                     foreach ( $country['payment_conditions_values'] as $country_code ) {
@@ -2086,6 +2098,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_city = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $billing_city_array as $key => $city ) {
+                $is_passed[$key]['has_condition_based_on_billing_city'] = 'no';
                 if ( 'is_equal_to' === $city['payments_conditions_is'] ) {
                     if ( !empty( $city['payment_conditions_values'] ) ) {
                         $citystr = str_replace( PHP_EOL, "<br/>", trim( $city['payment_conditions_values'] ) );
@@ -2216,6 +2229,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $selected_postcode = WC()->customer->get_billing_postcode();
             $is_passed = array();
             foreach ( $billing_postcode_array as $key => $postcode ) {
+                $is_passed[$key]['has_condition_based_on_billing_postcode'] = 'no';
                 if ( 'is_equal_to' === $postcode['payments_conditions_is'] ) {
                     if ( !empty( $postcode['payment_conditions_values'] ) ) {
                         $postcodestr = str_replace( PHP_EOL, "<br/>", $postcode['payment_conditions_values'] );
@@ -2346,6 +2360,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $selected_phone = WC()->customer->get_billing_phone();
             $is_passed = array();
             foreach ( $billing_phone_array as $key => $phone ) {
+                $is_passed[$key]['has_condition_based_on_billing_phone'] = 'no';
                 if ( 'is_equal_to' === $phone['payments_conditions_is'] ) {
                     if ( !empty( $phone['payment_conditions_values'] ) ) {
                         $phonestr = str_replace( PHP_EOL, "<br/>", $phone['payment_conditions_values'] );
@@ -2503,6 +2518,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_firstname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_firstname_array as $key => $firstname ) {
+                $is_passed[$key]['has_condition_based_on_shipping_firstname'] = 'no';
                 settype( $firstname['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $firstname['payments_conditions_is'] ) {
                     if ( !empty( $firstname['payment_conditions_values'] ) ) {
@@ -2626,6 +2642,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_lastname = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_lastname_array as $key => $lastname ) {
+                $is_passed[$key]['has_condition_based_on_shipping_lastname'] = 'no';
                 settype( $lastname['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $lastname['payments_conditions_is'] ) {
                     if ( !empty( $lastname['payment_conditions_values'] ) ) {
@@ -2749,6 +2766,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_company = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_company_array as $key => $company ) {
+                $is_passed[$key]['has_condition_based_on_shipping_company'] = 'no';
                 settype( $company['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $company['payments_conditions_is'] ) {
                     if ( !empty( $company['payment_conditions_values'] ) ) {
@@ -2872,6 +2890,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_address_1 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_address_1_array as $key => $address_1 ) {
+                $is_passed[$key]['has_condition_based_on_shipping_address_1'] = 'no';
                 settype( $address_1['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $address_1['payments_conditions_is'] ) {
                     if ( !empty( $address_1['payment_conditions_values'] ) ) {
@@ -2995,6 +3014,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_address_2 = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_address_2_array as $key => $address_2 ) {
+                $is_passed[$key]['has_condition_based_on_shipping_address_2'] = 'no';
                 settype( $address_2['payment_conditions_values'], 'string' );
                 if ( 'is_equal_to' === $address_2['payments_conditions_is'] ) {
                     if ( !empty( $address_2['payment_conditions_values'] ) ) {
@@ -3116,6 +3136,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $countries_obj = new WC_Countries();
             $getCountries = $countries_obj->__get( 'countries' );
             foreach ( $shipping_country_array as $key => $country ) {
+                $is_passed[$key]['has_condition_based_on_shipping_country'] = 'no';
                 $selected_country_name = array();
                 if ( !empty( $country['payment_conditions_values'] ) && is_array( $country['payment_conditions_values'] ) ) {
                     foreach ( $country['payment_conditions_values'] as $country_code ) {
@@ -3201,6 +3222,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $get_city = strtolower( self::dscpw_get_order_attr( $attr ) );
             $is_passed = array();
             foreach ( $shipping_city_array as $key => $city ) {
+                $is_passed[$key]['has_condition_based_on_shipping_city'] = 'no';
                 if ( 'is_equal_to' === $city['payments_conditions_is'] ) {
                     if ( !empty( $city['payment_conditions_values'] ) ) {
                         $citystr = str_replace( PHP_EOL, "<br/>", trim( $city['payment_conditions_values'] ) );
@@ -3331,6 +3353,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $selected_postcode = WC()->customer->get_shipping_postcode();
             $is_passed = array();
             foreach ( $shipping_postcode_array as $key => $postcode ) {
+                $is_passed[$key]['has_condition_based_on_shipping_postcode'] = 'no';
                 if ( 'is_equal_to' === $postcode['payments_conditions_is'] ) {
                     if ( !empty( $postcode['payment_conditions_values'] ) ) {
                         $postcodestr = str_replace( PHP_EOL, "<br/>", $postcode['payment_conditions_values'] );
@@ -3468,6 +3491,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                 'sat' => esc_html__( 'Saturday', 'conditional-payments' ),
             );
             foreach ( $day_of_week_array as $key => $day ) {
+                $is_passed[$key]['has_condition_based_on_day_of_week'] = 'no';
                 $all_day_name = array();
                 if ( !empty( $day['payment_conditions_values'] ) && is_array( $day['payment_conditions_values'] ) ) {
                     foreach ( $day['payment_conditions_values'] as $day_value ) {
@@ -3546,6 +3570,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
             $is_passed = array();
             $current_date = strtotime( gmdate( 'd-m-Y' ) );
             foreach ( $date_array as $key => $date ) {
+                $is_passed[$key]['has_condition_based_on_date'] = 'no';
                 $selected_date = ( isset( $date['payment_conditions_values'] ) && !empty( $date['payment_conditions_values'] ) ? strtotime( $date['payment_conditions_values'] ) : '' );
                 if ( 'is_equal_to' === $date['payments_conditions_is'] ) {
                     if ( !empty( $selected_date ) ) {
@@ -3903,8 +3928,6 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
         /**
          * Output debug data
          *
-         * @return string
-         *
          * @since 1.2.1
          *
          */
@@ -4098,9 +4121,16 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          *
          */
         public function dscpw_remove_currency_symbol( $price ) {
+            $args = array(
+                'decimal_separator'  => wc_get_price_decimal_separator(),
+                'thousand_separator' => wc_get_price_thousand_separator(),
+            );
             $wc_currency_symbol = get_woocommerce_currency_symbol();
-            $new_price = str_replace( $wc_currency_symbol, '', $price );
-            $new_price2 = (double) preg_replace( '/[^.\\d]/', '', $new_price );
+            $cleanText = wp_strip_all_tags( $price );
+            $new_price = str_replace( $wc_currency_symbol, '', $cleanText );
+            $tnew_price = str_replace( $args['thousand_separator'], '', $new_price );
+            $dnew_price = str_replace( $args['decimal_separator'], '.', $tnew_price );
+            $new_price2 = preg_replace( '/[^.\\d]/', '', $dnew_price );
             return $new_price2;
         }
 
@@ -4131,8 +4161,6 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          * Get all the rules
          *
          * @since  1.2.1
-         *
-         * @return array $rules
          */
         public function dscpw_conditions_debug_data(
             $rule_id,

@@ -66,52 +66,53 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_enqueue_admin_scripts() {
             $get_section = filter_input( INPUT_GET, 'section', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $allConditions = array(
-                'ajaxurl'                => admin_url( 'admin-ajax.php' ),
-                'ajax_icon'              => esc_url( plugin_dir_url( __FILE__ ) . '/images/ajax-loader.gif' ),
-                'plugin_url'             => plugin_dir_url( __FILE__ ),
-                'validation_length1'     => esc_html__( 'Please enter 3 or more characters', 'conditional-payments' ),
-                'dscpw_ajax_nonce'       => wp_create_nonce( 'dscpw_nonce' ),
-                'select_some_options'    => esc_html__( 'Select some options', 'conditional-payments' ),
-                'billing_address_group'  => esc_html__( 'Billing Address', 'conditional-payments' ),
-                'shipping_address_group' => esc_html__( 'Shipping Address', 'conditional-payments' ),
-                'billing_first_name'     => esc_html__( 'First Name', 'conditional-payments' ),
-                'billing_last_name'      => esc_html__( 'Last Name', 'conditional-payments' ),
-                'billing_company'        => esc_html__( 'Company', 'conditional-payments' ),
-                'billing_address_1'      => esc_html__( 'Address', 'conditional-payments' ),
-                'billing_address_2'      => esc_html__( 'Address 2', 'conditional-payments' ),
-                'billing_country'        => esc_html__( 'Country', 'conditional-payments' ),
-                'billing_city'           => esc_html__( 'City', 'conditional-payments' ),
-                'billing_postcode'       => esc_html__( 'Postcode', 'conditional-payments' ),
-                'shipping_first_name'    => esc_html__( 'First Name', 'conditional-payments' ),
-                'shipping_last_name'     => esc_html__( 'Last Name', 'conditional-payments' ),
-                'shipping_company'       => esc_html__( 'Company', 'conditional-payments' ),
-                'shipping_address_1'     => esc_html__( 'Address', 'conditional-payments' ),
-                'shipping_address_2'     => esc_html__( 'Address 2', 'conditional-payments' ),
-                'shipping_country'       => esc_html__( 'Country', 'conditional-payments' ),
-                'shipping_city'          => esc_html__( 'City', 'conditional-payments' ),
-                'shipping_postcode'      => esc_html__( 'Postcode', 'conditional-payments' ),
-                'equal_to'               => esc_html__( 'Equal to ( = )', 'conditional-payments' ),
-                'not_equal_to'           => esc_html__( 'Not Equal to ( != )', 'conditional-payments' ),
-                'less_or_equal_to'       => esc_html__( 'Less or Equal to ( <= )', 'conditional-payments' ),
-                'less_than'              => esc_html__( 'Less then ( < )', 'conditional-payments' ),
-                'greater_or_equal_to'    => esc_html__( 'Greater or Equal to ( >= )', 'conditional-payments' ),
-                'greater_than'           => esc_html__( 'Greater then ( > )', 'conditional-payments' ),
-                'is_empty'               => esc_html__( 'Is Empty', 'conditional-payments' ),
-                'is_not_empty'           => esc_html__( 'Is Not Empty', 'conditional-payments' ),
-                'delete'                 => esc_html__( 'Delete', 'conditional-payments' ),
-                'product_specific'       => esc_html__( 'Product Specific', 'conditional-payments' ),
-                'product'                => esc_html__( 'Product', 'conditional-payments' ),
-                'variable_product'       => esc_html__( 'Variable Product', 'conditional-payments' ),
-                'cart_specific'          => esc_html__( 'Cart Specific', 'conditional-payments' ),
-                'cart_total'             => esc_html__( 'Cart Subtotal (Before Discount)', 'conditional-payments' ),
-                'cart_totalafter'        => esc_html__( 'Cart Subtotal (After Discount)', 'conditional-payments' ),
-                'shipping_specific'      => esc_html__( 'Shipping Specific', 'conditional-payments' ),
-                'shipping_method'        => esc_html__( 'Shipping Method', 'conditional-payments' ),
-                'enable_payments'        => esc_html__( 'Enable Payments Methods', 'conditional-payments' ),
-                'disable_payments'       => esc_html__( 'Disable Payments Methods', 'conditional-payments' ),
-                'time_specific'          => esc_html__( 'Time Specific', 'conditional-payments' ),
-                'day_of_week'            => esc_html__( 'Day Of Week', 'conditional-payments' ),
-                'date'                   => esc_html__( 'Date', 'conditional-payments' ),
+                'ajaxurl'                  => admin_url( 'admin-ajax.php' ),
+                'ajax_icon'                => esc_url( plugin_dir_url( __FILE__ ) . '/images/ajax-loader.gif' ),
+                'plugin_url'               => plugin_dir_url( __FILE__ ),
+                'validation_length1'       => esc_html__( 'Please enter 3 or more characters', 'conditional-payments' ),
+                'dscpw_ajax_nonce'         => wp_create_nonce( 'dscpw_nonce' ),
+                'select_some_options'      => esc_html__( 'Select some options', 'conditional-payments' ),
+                'billing_address_group'    => esc_html__( 'Billing Address', 'conditional-payments' ),
+                'shipping_address_group'   => esc_html__( 'Shipping Address', 'conditional-payments' ),
+                'billing_first_name'       => esc_html__( 'First Name', 'conditional-payments' ),
+                'billing_last_name'        => esc_html__( 'Last Name', 'conditional-payments' ),
+                'billing_company'          => esc_html__( 'Company', 'conditional-payments' ),
+                'billing_address_1'        => esc_html__( 'Address', 'conditional-payments' ),
+                'billing_address_2'        => esc_html__( 'Address 2', 'conditional-payments' ),
+                'billing_country'          => esc_html__( 'Country', 'conditional-payments' ),
+                'billing_city'             => esc_html__( 'City', 'conditional-payments' ),
+                'billing_postcode'         => esc_html__( 'Postcode', 'conditional-payments' ),
+                'shipping_first_name'      => esc_html__( 'First Name', 'conditional-payments' ),
+                'shipping_last_name'       => esc_html__( 'Last Name', 'conditional-payments' ),
+                'shipping_company'         => esc_html__( 'Company', 'conditional-payments' ),
+                'shipping_address_1'       => esc_html__( 'Address', 'conditional-payments' ),
+                'shipping_address_2'       => esc_html__( 'Address 2', 'conditional-payments' ),
+                'shipping_country'         => esc_html__( 'Country', 'conditional-payments' ),
+                'shipping_city'            => esc_html__( 'City', 'conditional-payments' ),
+                'shipping_postcode'        => esc_html__( 'Postcode', 'conditional-payments' ),
+                'equal_to'                 => esc_html__( 'Equal to ( = )', 'conditional-payments' ),
+                'not_equal_to'             => esc_html__( 'Not Equal to ( != )', 'conditional-payments' ),
+                'less_or_equal_to'         => esc_html__( 'Less or Equal to ( <= )', 'conditional-payments' ),
+                'less_than'                => esc_html__( 'Less then ( < )', 'conditional-payments' ),
+                'greater_or_equal_to'      => esc_html__( 'Greater or Equal to ( >= )', 'conditional-payments' ),
+                'greater_than'             => esc_html__( 'Greater then ( > )', 'conditional-payments' ),
+                'is_empty'                 => esc_html__( 'Is Empty', 'conditional-payments' ),
+                'is_not_empty'             => esc_html__( 'Is Not Empty', 'conditional-payments' ),
+                'delete'                   => esc_html__( 'Delete', 'conditional-payments' ),
+                'product_specific'         => esc_html__( 'Product Specific', 'conditional-payments' ),
+                'product'                  => esc_html__( 'Product', 'conditional-payments' ),
+                'variable_product'         => esc_html__( 'Variable Product', 'conditional-payments' ),
+                'cart_specific'            => esc_html__( 'Cart Specific', 'conditional-payments' ),
+                'cart_total'               => esc_html__( 'Cart Subtotal (Before Discount)', 'conditional-payments' ),
+                'cart_totalafter'          => esc_html__( 'Cart Subtotal (After Discount)', 'conditional-payments' ),
+                'shipping_specific'        => esc_html__( 'Shipping Specific', 'conditional-payments' ),
+                'shipping_method'          => esc_html__( 'Shipping Method', 'conditional-payments' ),
+                'enable_payments'          => esc_html__( 'Enable Payments Methods', 'conditional-payments' ),
+                'disable_payments'         => esc_html__( 'Disable Payments Methods', 'conditional-payments' ),
+                'time_specific'            => esc_html__( 'Time Specific', 'conditional-payments' ),
+                'day_of_week'              => esc_html__( 'Day Of Week', 'conditional-payments' ),
+                'date'                     => esc_html__( 'Date', 'conditional-payments' ),
+                'is_multi_curcy_available' => ( function_exists( 'dscpw_check_multi_curcy_available' ) ? dscpw_check_multi_curcy_available() : false ),
             );
             $allConditions['product_categories_disabled'] = esc_html__( 'Product Categories 🔒', 'conditional-payments' );
             $allConditions['product_tags_disabled'] = esc_html__( 'Product Tags 🔒', 'conditional-payments' );
@@ -143,6 +144,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $allConditions['time_disabled'] = esc_html__( 'Time 🔒', 'conditional-payments' );
             $allConditions['product_visibility_disabled'] = esc_html__( 'Product Visibility 🔒', 'conditional-payments' );
             $allConditions['product_stock_status_disabled'] = esc_html__( 'Stock Status 🔒', 'conditional-payments' );
+            $allConditions['multi_currency_disabled'] = esc_html__( 'Currency 🔒', 'conditional-payments' );
             if ( isset( $get_section ) && false !== strpos( $get_section, 'dscpw_conditional_payments' ) ) {
                 wp_enqueue_script( 'jquery-ui-datepicker' );
                 wp_enqueue_style(
@@ -309,6 +311,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 echo sprintf( '<div id="message" class="notice notice-error is-dismissible"><p>%s</p></div>', esc_html( $validated_messsage ) );
                 return false;
             }
+            return false;
         }
 
         /**
@@ -486,7 +489,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $get_product_list_count = '';
             if ( 'edit' === $action ) {
                 $post_in = $selected;
-                $get_product_list_count = -1;
+                $get_product_list_count = ( empty( $selected ) ? 10 : -1 );
             } else {
                 $post_in = '';
                 $get_product_list_count = 10;
@@ -581,7 +584,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $get_varible_product_list_count = '';
             if ( 'edit' === $action ) {
                 $post_in = $selected;
-                $get_varible_product_list_count = -1;
+                $get_varible_product_list_count = ( empty( $selected ) ? 10 : -1 );
             } else {
                 $post_in = '';
                 $get_varible_product_list_count = 10;
@@ -645,11 +648,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $default_lang = $this->dscpw_get_default_language_with_sitepress();
             $json = true;
             $filter_product_list = [];
-            $request_value = filter_input( INPUT_GET, 'value', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+            $request_value = filter_input( INPUT_GET, 'value', FILTER_SANITIZE_SPECIAL_CHARS );
             $posts_per_page = filter_input( INPUT_GET, 'posts_per_page', FILTER_VALIDATE_INT );
             $_page = filter_input( INPUT_GET, '_page', FILTER_SANITIZE_NUMBER_INT );
             $post_value = ( isset( $request_value ) ? sanitize_text_field( $request_value ) : '' );
             $baselang_product_ids = array();
+            // @phpstan-ignore-next-line
             function dscpw_posts_wheres(  $where, $wp_query  ) {
                 global $wpdb;
                 $search_term = $wp_query->get( 'search_pro_title' );
@@ -736,11 +740,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $default_lang = $this->dscpw_get_default_language_with_sitepress();
             $json = true;
             $filter_variable_product_list = [];
-            $request_value = filter_input( INPUT_GET, 'value', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+            $request_value = filter_input( INPUT_GET, 'value', FILTER_SANITIZE_SPECIAL_CHARS );
             $posts_per_page = filter_input( INPUT_GET, 'posts_per_page', FILTER_VALIDATE_INT );
             $_page = filter_input( INPUT_GET, '_page', FILTER_SANITIZE_NUMBER_INT );
             $post_value = ( isset( $request_value ) ? sanitize_text_field( $request_value ) : '' );
             $baselang_product_ids = array();
+            // @phpstan-ignore-next-line
             function dscpw_posts_wheres(  $where, $wp_query  ) {
                 global $wpdb;
                 $search_term = $wp_query->get( 'search_pro_title' );
@@ -1350,6 +1355,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                     'data-index'  => array(),
                     'style'       => array(),
                     'placeholder' => array(),
+                    'min'         => array(),
+                    'step'        => array(),
                 ),
                 'textarea' => array(
                     'id'    => array(),

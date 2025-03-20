@@ -117,17 +117,26 @@
                         {'name': coditional_vars.billing_city, 'attributes': {'value': 'billing_city'}},
                         {'name': coditional_vars.billing_postcode, 'attributes': {'value': 'billing_postcode'}},
                         {'name': coditional_vars.billing_email_disabled, 'attributes': {'value': 'billing_email_disabled'}},
-                        {'name': coditional_vars.previous_order_disabled, 'attributes': {'value': 'previous_order_disabled'}},
                     ]
                 },
                 {
                     'type': 'optgroup',
                     'attributes': {'label': coditional_vars.customer_group},
-                    'options': [
-                        {'name': coditional_vars.customer_authenticated_disabled, 'attributes': {'value': 'customer_authenticated_disabled'}},
-                        {'name': coditional_vars.user_disabled, 'attributes': {'value': 'user_disabled'}},
-                        {'name': coditional_vars.user_role_disabled, 'attributes': {'value': 'user_role_disabled'}},
-                    ]
+                    'options': (function() {
+                        let options = [
+                            {'name': coditional_vars.customer_authenticated_disabled, 'attributes': {'value': 'customer_authenticated_disabled'}},
+                            {'name': coditional_vars.user_disabled, 'attributes': {'value': 'user_disabled'}},
+                            {'name': coditional_vars.user_role_disabled, 'attributes': {'value': 'user_role_disabled'}},
+                            {'name': coditional_vars.previous_order_disabled, 'attributes': {'value': 'previous_order_disabled'}},
+                        ];
+
+                        // Only add multi_currency if is_multi_curcy_available available
+                        if (coditional_vars.is_multi_curcy_available === '1' || coditional_vars.is_multi_curcy_available === 'true') {
+                            options.push({'name': coditional_vars.multi_currency_disabled, 'attributes': {'value': 'multi_currency_disabled'}});
+                        }
+
+                        return options;
+                    })()
                 },
                 {
                     'type': 'optgroup',
@@ -431,6 +440,7 @@
             }
         });
 
+
         function condition_values(element) {
             var posts_per_page = 3; // Post per page
             var page = 0; // What page we are on.
@@ -501,12 +511,33 @@
                         condition_values = insertOptions(condition_values, data);
                     } else {
                         condition_values = document.createElement($.trim(response));
-                        condition_values = setAllAttributes(condition_values, {
-                            'name': 'payment[payment_conditions_values][value_' + count + ']',
-                            'class': 'payment_conditions_values ' + extra_class,
-                            'type': 'text',
 
-                        });
+                        if ( condition === 'product_quantity' 
+                            || condition === 'cart_total' 
+                            || condition === 'cart_totalafter' 
+                            || condition === 'cart_quantity' 
+                            || condition === 'total_weight' 
+                            || condition === 'number_of_items' 
+                            || condition === 'total_volume'
+                            || condition === 'previous_order'
+                        ) {
+                            condition_values = setAllAttributes(condition_values, {
+                                'name': 'payment[payment_conditions_values][value_' + count + ']',
+                                'class': 'payment_conditions_values ' + extra_class,
+                                'type': 'number',
+                                'min': '0',
+                                'step': 'any'
+    
+                            });
+                        } else {
+                            condition_values = setAllAttributes(condition_values, {
+                                'name': 'payment[payment_conditions_values][value_' + count + ']',
+                                'class': 'payment_conditions_values ' + extra_class,
+                                'type': 'text',
+    
+                            });
+                        }
+                        
                         column.appendChild(condition_values);
                     }
 

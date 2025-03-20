@@ -79,7 +79,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments' ) ) {
                 "{$prefix}plugin_action_links_" . DSCPW_PLUGIN_BASENAME,
                 array($this, 'dscpw_plugin_action_links'),
                 10,
-                4
+                1
             );
             add_filter(
                 'plugin_row_meta',

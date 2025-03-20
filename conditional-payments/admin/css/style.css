@@ -13,7 +13,7 @@
 .dscpw-section-main table.form-table tr th{font-weight:600;position:relative;padding:20px 10px 20px 0;vertical-align:top;width:300px;line-height:1.3;}
 .dscpw-section-main table.form-table tr td ul{margin:0;}
 .dscpw-section-main table.form-table tr td span.action-delete-field,.dscpw-section-main table.form-table tr td span.condition-delete-field{color:var(--dots-remove);cursor:pointer;}
-.dscpw-section-main table.form-table.table-outer tr td input[type=text]{padding:6px;}
+.dscpw-section-main table.form-table.table-outer tr td input[type=text], .dscpw-section-main table.form-table.table-outer tr td input[type=number]{padding:6px;}
 .dscpw-section-main .nav-tab-wrapper{margin:25px 0 10px;}
 .dscpw-section-main .wpa-save-button{margin:18px 0 0 8px;display:-webkit-box;display:-ms-flexbox;display:flex;width:100%;}
 .dscpw-section-main .wpa-loader{position:relative;display:none;}

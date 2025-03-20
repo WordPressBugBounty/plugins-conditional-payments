@@ -4,7 +4,7 @@
  * Plugin Name: Conditional Payment Methods for WooCommerce
  * Plugin URI: https://www.thedotstore.com/conditional-payments-for-woocommerce/
  * Description: Allows store owners to restrict payment methods based on the various conditions!
- * Version: 1.2.1
+ * Version: 1.2.2
  * Author: theDotstore
  * Author URI: https://www.thedotstore.com/
  * License: GPL-3.0+
@@ -14,8 +14,8 @@
  * Requires Plugins: woocommerce
  * 
  * WC requires at least: 4.5
- * WP tested up to:      6.6.2
- * WC tested up to:      9.3.3
+ * WP tested up to:      6.7.2
+ * WC tested up to:      9.7.1
  * Requires PHP:         5.6
  * Requires at least:    5.0
  */
@@ -38,6 +38,7 @@ if ( function_exists( 'cp_fs' ) ) {
                 }
                 // Include Freemius SDK.
                 require_once dirname( __FILE__ ) . '/freemius/start.php';
+                // @phpstan-ignore-next-line
                 $cp_fs = fs_dynamic_init( array(
                     'id'             => '10262',
                     'slug'           => 'conditional-payments',
@@ -65,7 +66,7 @@ if ( function_exists( 'cp_fs' ) ) {
     }
 }
 if ( !defined( 'DSCPW_PLUGIN_VERSION' ) ) {
-    define( 'DSCPW_PLUGIN_VERSION', '1.2.1' );
+    define( 'DSCPW_PLUGIN_VERSION', '1.2.2' );
 }
 if ( !defined( 'DSCPW_PLUGIN_URL' ) ) {
     define( 'DSCPW_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -178,3 +179,20 @@ add_action( 'before_woocommerce_init', function () {
         \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
     }
 } );
+/**
+ * Check if Multi Currency available by VillaTheme
+ */
+if ( !function_exists( 'dscpw_check_multi_curcy_available' ) ) {
+    function dscpw_check_multi_curcy_available() {
+        $list_currencies = array();
+        if ( class_exists( 'WOOMULTI_CURRENCY_Data' ) ) {
+            $curcy = WOOMULTI_CURRENCY_Data::get_ins();
+            $list_currencies = $curcy->get_list_currencies();
+        } elseif ( class_exists( 'WOOMULTI_CURRENCY_F_Data' ) ) {
+            $curcy = WOOMULTI_CURRENCY_F_Data::get_ins();
+            $list_currencies = $curcy->get_list_currencies();
+        }
+        return ( empty( $list_currencies ) ? false : true );
+    }
+
+}

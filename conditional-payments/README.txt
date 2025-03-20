@@ -3,12 +3,12 @@ Plugin Name: Conditional Payment Methods for WooCommerce
 Author: theDotstore
 Author URI: https://www.thedotstore.com/
 Contributors: dots
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 Requires PHP: 5.6
 Tags: conditional payments, payment methods, woocommerce payments
 Requires at least: 5.0
-Tested up to: 6.6.2
-WC tested up to: 9.3.3
+Tested up to: 6.7.2
+WC tested up to: 9.7.1
 Donate link: https://www.thedotstore.com/
 Copyright: (c) 2015-2019 Thedotstore all rights reserved (support@thedotstore.com)
 License: GPLv3 or later
@@ -139,6 +139,13 @@ ANS: Yes. And it's very easy to do with our plugin.
 Automatic updates should work great for you.  As always, though, we recommend backing up your site prior to making any updates just to be sure nothing goes wrong.
 
 == Changelog ==
+= 1.2.2 =
+* [Bug Fix] Minor fixes related to the product based condition
+* [Bug Fix] Minor fixes related to the numeric value validation on cart total and other conditions
+* [Bug Fix] Minor fixes related to the calculation of cart subtotal based condition
+* [Enhancement] Compatible with WooCommerce 9.7.x
+* [Enhancement] Compatible with WordPress 6.7.x
+
 = 1.2.1 =
 * [Bug Fix] Minor fixes related to the COD payment gateway listing
 * [Enhancement] Plugin compatibility with WooCommerce Cart and Checkout blocks

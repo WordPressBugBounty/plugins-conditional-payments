@@ -39,6 +39,7 @@ if ( $get_action === 'edit' ) {
 $dscpw_cp_status = ( !empty( $dscpw_cp_status ) && 'publish' === $dscpw_cp_status || empty( $dscpw_cp_status ) ? 'checked' : '' );
 $dscpw_admin_object = new DSCPW_Conditional_Payments_Admin('', '');
 $allowed_tooltip_html = wp_kses_allowed_html( 'post' )['span'];
+$is_multi_curcy_available = ( function_exists( 'dscpw_check_multi_curcy_available' ) ? dscpw_check_multi_curcy_available() : false );
 ?>
 <div class="dscpw-section-main">
 	<div class="dscpw-rules-section">
@@ -245,9 +246,6 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																	<option value="billing_phone_disabled"><?php 
         esc_html_e( 'Phone 🔒', 'conditional-payments' );
         ?></option>
-																	<option value="previous_order_disabled"><?php 
-        esc_html_e( 'Previous Order 🔒', 'conditional-payments' );
-        ?></option>
 																<?php 
         ?>
 													</optgroup>
@@ -265,6 +263,16 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																<option value="user_role_disabled" ><?php 
         esc_html_e( 'User Role 🔒', 'conditional-payments' );
         ?></option>
+																<option value="previous_order_disabled"><?php 
+        esc_html_e( 'Previous Order 🔒', 'conditional-payments' );
+        ?></option>
+																<?php 
+        if ( $is_multi_curcy_available ) {
+            ?><option value="multi_currency_disabled"><?php 
+            esc_html_e( 'Currency 🔒', 'conditional-payments' );
+            ?></option><?php 
+        }
+        ?>
 															</optgroup>
 														<?php 
         ?>
@@ -375,7 +383,7 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             ?></option>
 												</select>
 												<?php 
-        } elseif ( 'product' === $payment_conditions || 'variable_product' === $payment_conditions || 'shipping_method' === $payment_conditions || 'billing_country' === $payment_conditions || 'shipping_country' === $payment_conditions || 'day_of_week' === $payment_conditions || 'product_visibility' === $payment_conditions ) {
+        } elseif ( 'product' === $payment_conditions || 'variable_product' === $payment_conditions || 'shipping_method' === $payment_conditions || 'billing_country' === $payment_conditions || 'shipping_country' === $payment_conditions || 'day_of_week' === $payment_conditions || 'product_visibility' === $payment_conditions || 'multi_currency' === $payment_conditions ) {
             ?>
 													<select name="payment[payments_conditions_is][]"
 												        class="payments_conditions_is payments_conditions_is_<?php 
@@ -437,9 +445,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
         } elseif ( 'variable_product' === $payment_conditions ) {
             $html .= $dscpw_admin_object->dscpw_get_varible_product_list( $i, $condtion_value, 'edit' );
         } elseif ( 'cart_total' === $payment_conditions ) {
-            $html .= '<input type = "text" name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "payment_conditions_values" value = "' . esc_attr( $condtion_value ) . '">';
+            $html .= '<input type="number" min="0" step="any" name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "payment_conditions_values" value = "' . esc_attr( $condtion_value ) . '">';
         } elseif ( 'cart_totalafter' === $payment_conditions ) {
-            $html .= '<input type="text" name="payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class="payment_conditions_values" value="' . esc_attr( $condtion_value ) . '">';
+            $html .= '<input type="number" min="0" step="any" name="payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class="payment_conditions_values" value="' . esc_attr( $condtion_value ) . '">';
             $html .= sprintf( wp_kses( __( '<p><b style="color: red;">Note: </b>This rule will apply when you would apply coupun in front side. <a href="%s" target="_blank">Click Here</a>.</p>', 'conditional-payments' ), array(
                 'p' => array(),
                 'b' => array(
@@ -650,9 +658,6 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																	<option value="billing_phone_disabled"><?php 
     esc_html_e( 'Phone 🔒', 'conditional-payments' );
     ?></option>
-																	<option value="previous_order_disabled"><?php 
-    esc_html_e( 'Previous Order', 'conditional-payments' );
-    ?></option>
 																<?php 
     ?>
 													</optgroup>
@@ -670,6 +675,16 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 															<option value="user_role_disabled"><?php 
     esc_html_e( 'User Role 🔒', 'conditional-payments' );
     ?></option>
+															<option value="previous_order_disabled"><?php 
+    esc_html_e( 'Previous Order 🔒', 'conditional-payments' );
+    ?></option>
+															<?php 
+    if ( $is_multi_curcy_available ) {
+        ?><option value="multi_currency_disabled"><?php 
+        esc_html_e( 'Currency 🔒', 'conditional-payments' );
+        ?></option><?php 
+    }
+    ?>
 														</optgroup>
 														<?php 
     ?>
