@@ -69,6 +69,12 @@ Plugin - <a href="https://pluginsdemo.thedotstore.com/conditional-payments-for-w
 <li><strong>Pro Plugin:</strong>  PRE-SALE Questions - <a href="https://www.thedotstore.com/support/">Click here</a> or <a href="https://docs.thedotstore.com/collection/485-conditional-payments">Help Document</a></li>
 </ul>
 
+== 🎯 Supercharge Your Store Performance ==
+
+Gain access to <strong>50 expert tips</strong> covering everything from <strong>site speed</strong> and <strong>user experience</strong> to advanced sales strategies, each with impact scores to help you prioritize what truly drives results.
+
+<a href ="https://www.thedotstore.com/?popup_id=76452&utm_source=freeplugin&utm_medium=content&utm_id=ebook1_conditional_payment" target="_blank">Download Free eBook</a>
+
 == EXPLORE OUR OTHER PLUGINS TO SUPERCHARGE YOUR WEBSITE: ==
 
 == 👉 Premium WooCommerce Plugins list ==
