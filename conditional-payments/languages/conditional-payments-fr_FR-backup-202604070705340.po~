@@ -8,12 +8,11 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: 2026-04-07 07:05+0000\n"
+"PO-Revision-Date: 2026-04-06 05:30+0000\n"
 "Last-Translator: \n"
-"Language-Team: Polish\n"
-"Language: pl_PL\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10 >= 2 && n%10<=4 "
-"&&(n%100<10||n%100 >= 20)? 1 : 2);\n"
+"Language-Team: French (France)\n"
+"Language: fr_FR\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
 "X-Poedit-Country: India\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 "X-Poedit-KeywordsList: __;_e;_x:1,2c;_ex:1,2c;_n:1,2;_nx:1,2,4c;_n_noop:1,2;"
@@ -92,7 +91,7 @@ msgstr ""
 msgid "Add Conditional Payments Rules"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:447
+#: admin/partials/class-dscpwc-conditional-payments-page.php:450
 msgid "Add New"
 msgstr ""
 
@@ -156,7 +155,7 @@ msgstr ""
 msgid "Address 2"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:469
+#: admin/partials/class-dscpwc-conditional-payments-page.php:467
 msgid "Advanced Settings"
 msgstr ""
 
@@ -168,7 +167,7 @@ msgstr ""
 msgid "Apply special payment processing fees."
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1263
+#: admin/class-conditional-payments-admin.php:1261
 msgid "Backorders"
 msgstr ""
 
@@ -273,7 +272,7 @@ msgstr ""
 msgid "Conditional payments rule updated."
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:443
+#: admin/partials/class-dscpwc-conditional-payments-page.php:446
 msgid "Conditional Payments Rules"
 msgstr ""
 
@@ -338,19 +337,15 @@ msgstr ""
 msgid "Day Of Week"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:482
-#: admin/partials/class-dscpwc-conditional-payments-page.php:503
-#: admin/partials/class-dscpwc-conditional-payments-page.php:525
+#: admin/partials/class-dscpwc-conditional-payments-page.php:480
+#: admin/partials/class-dscpwc-conditional-payments-page.php:501
+#: admin/partials/class-dscpwc-conditional-payments-page.php:523
 msgid "Debug Mode"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:395
-msgid "Debug mode settings saved."
-msgstr ""
-
-#: admin/partials/class-dscpwc-conditional-payments-page.php:482
-#: admin/partials/class-dscpwc-conditional-payments-page.php:503
-#: admin/partials/class-dscpwc-conditional-payments-page.php:525
+#: admin/partials/class-dscpwc-conditional-payments-page.php:480
+#: admin/partials/class-dscpwc-conditional-payments-page.php:501
+#: admin/partials/class-dscpwc-conditional-payments-page.php:523
 msgid ""
 "Debug mode shows passed conditions and which actions were run in the "
 "checkout."
@@ -375,7 +370,7 @@ msgstr ""
 msgid "Docs"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1516
+#: admin/class-conditional-payments-admin.php:1514
 #: public/class-conditional-payments-public.php:3073
 msgid "Downloadable product"
 msgstr ""
@@ -422,7 +417,7 @@ msgstr ""
 msgid "Equal to ( = )"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:349
+#: admin/partials/class-dscpwc-conditional-payments-page.php:347
 msgid "Error saving conditional payments."
 msgstr ""
 
@@ -437,7 +432,7 @@ msgstr ""
 msgid "Fail"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1228
+#: admin/class-conditional-payments-admin.php:1226
 #: public/class-conditional-payments-public.php:5768
 msgid "Featured product"
 msgstr ""
@@ -449,7 +444,7 @@ msgstr ""
 msgid "First Name"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1090
+#: admin/class-conditional-payments-admin.php:1088
 #: public/class-conditional-payments-public.php:5369
 msgid "Friday"
 msgstr ""
@@ -471,8 +466,8 @@ msgstr ""
 msgid "Greater then ( > )"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1306
-#: admin/class-conditional-payments-admin.php:1307
+#: admin/class-conditional-payments-admin.php:1304
+#: admin/class-conditional-payments-admin.php:1305
 #: public/class-conditional-payments-public.php:2630
 msgid "Guest"
 msgstr ""
@@ -484,7 +479,7 @@ msgid ""
 "allow it to be available for the cart or customer address."
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1262
+#: admin/class-conditional-payments-admin.php:1260
 msgid "In stock"
 msgstr ""
 
@@ -534,7 +529,7 @@ msgstr ""
 msgid "Logged in / out 🔒"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1086
+#: admin/class-conditional-payments-admin.php:1084
 #: public/class-conditional-payments-public.php:5365
 msgid "Monday"
 msgstr ""
@@ -606,8 +601,8 @@ msgid "Phone 🔒"
 msgstr ""
 
 #: admin/class-conditional-payments-admin.php:67
-#: admin/class-conditional-payments-admin.php:698
-#: admin/class-conditional-payments-admin.php:741
+#: admin/class-conditional-payments-admin.php:696
+#: admin/class-conditional-payments-admin.php:739
 msgid "Please enter 3 or more characters"
 msgstr ""
 
@@ -640,7 +635,7 @@ msgstr ""
 msgid "Product Brands"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1415
+#: admin/class-conditional-payments-admin.php:1413
 msgid ""
 "Product brands are unavailable: the product_brand taxonomy is not registered."
 " Enable a brands plugin that registers this taxonomy."
@@ -734,7 +729,7 @@ msgstr ""
 msgid "Rule Name"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:2074
+#: admin/class-conditional-payments-admin.php:2072
 msgid "Rule status changed successfully."
 msgstr ""
 
@@ -746,28 +741,28 @@ msgstr ""
 msgid "Run"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1091
+#: admin/class-conditional-payments-admin.php:1089
 #: public/class-conditional-payments-public.php:5370
 msgid "Saturday"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:494
-#: admin/partials/class-dscpwc-conditional-payments-page.php:515
-#: admin/partials/class-dscpwc-conditional-payments-page.php:537
+#: admin/partials/class-dscpwc-conditional-payments-page.php:492
+#: admin/partials/class-dscpwc-conditional-payments-page.php:513
+#: admin/partials/class-dscpwc-conditional-payments-page.php:535
 #: admin/partials/form-dscpw.php:959
 msgid "Save Changes"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:465
+#: admin/partials/class-dscpwc-conditional-payments-page.php:463
 msgid "Search"
 msgstr ""
 
-#: admin/partials/class-dscpwc-conditional-payments-page.php:452
+#: admin/partials/class-dscpwc-conditional-payments-page.php:455
 msgid "Search results for: <strong>%s</strong>"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1594
-#: admin/class-conditional-payments-admin.php:1595
+#: admin/class-conditional-payments-admin.php:1592
+#: admin/class-conditional-payments-admin.php:1593
 msgid "Select All"
 msgstr ""
 
@@ -795,7 +790,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:407
+#: admin/class-conditional-payments-admin.php:405
 msgid "Settings saved successfully"
 msgstr ""
 
@@ -826,17 +821,17 @@ msgstr ""
 msgid "Shipping Specific"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:2043
-#: admin/class-conditional-payments-admin.php:2049
-#: admin/class-conditional-payments-admin.php:2076
+#: admin/class-conditional-payments-admin.php:2041
+#: admin/class-conditional-payments-admin.php:2047
+#: admin/class-conditional-payments-admin.php:2074
 msgid "Something went wrong"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:450
-#: admin/class-conditional-payments-admin.php:600
-#: admin/class-conditional-payments-admin.php:879
-#: admin/class-conditional-payments-admin.php:964
-#: admin/class-conditional-payments-admin.php:2018
+#: admin/class-conditional-payments-admin.php:448
+#: admin/class-conditional-payments-admin.php:598
+#: admin/class-conditional-payments-admin.php:877
+#: admin/class-conditional-payments-admin.php:962
+#: admin/class-conditional-payments-admin.php:2016
 msgid "Sorry, you are not allowed to do this."
 msgstr ""
 
@@ -872,7 +867,7 @@ msgstr ""
 msgid "Stock Status 🔒"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1085
+#: admin/class-conditional-payments-admin.php:1083
 #: public/class-conditional-payments-public.php:5364
 msgid "Sunday"
 msgstr ""
@@ -881,12 +876,12 @@ msgstr ""
 msgid "Support"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:398
+#: admin/class-conditional-payments-admin.php:396
 msgid "There was an error with saving data."
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:400
-#: admin/class-conditional-payments-admin.php:410
+#: admin/class-conditional-payments-admin.php:398
+#: admin/class-conditional-payments-admin.php:408
 msgid "There was an error with security check."
 msgstr ""
 
@@ -913,7 +908,7 @@ msgid ""
 "option. "
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1089
+#: admin/class-conditional-payments-admin.php:1087
 #: public/class-conditional-payments-public.php:5368
 msgid "Thursday"
 msgstr ""
@@ -963,7 +958,7 @@ msgstr ""
 msgid "Total Weight 🔒"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1087
+#: admin/class-conditional-payments-admin.php:1085
 #: public/class-conditional-payments-public.php:5366
 msgid "Tuesday"
 msgstr ""
@@ -1020,12 +1015,12 @@ msgstr ""
 msgid "Variable Product"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1515
+#: admin/class-conditional-payments-admin.php:1513
 #: public/class-conditional-payments-public.php:3072
 msgid "Virtual product"
 msgstr ""
 
-#: admin/class-conditional-payments-admin.php:1088
+#: admin/class-conditional-payments-admin.php:1086
 #: public/class-conditional-payments-public.php:5367
 msgid "Wednesday"
 msgstr ""

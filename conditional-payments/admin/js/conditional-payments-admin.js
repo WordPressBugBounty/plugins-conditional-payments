@@ -77,6 +77,7 @@
                         {'name': coditional_vars.product, 'attributes': {'value': 'product'}},
                         {'name': coditional_vars.variable_product, 'attributes': {'value': 'variable_product'}},
                         {'name': coditional_vars.product_categories_disabled, 'attributes': {'value': 'product_categories_disabled'}},
+                        {'name': coditional_vars.product_brands_disabled, 'attributes': {'value': 'product_brands_disabled'}},
                         {'name': coditional_vars.product_tags_disabled, 'attributes': {'value': 'product_tags_disabled'}},
                         {'name': coditional_vars.product_type_disabled, 'attributes': {'value': 'product_type_disabled'}},
                         {'name': coditional_vars.product_visibility_disabled, 'attributes': {'value': 'product_visibility_disabled'}},
@@ -89,6 +90,7 @@
                     'options': [
                         {'name': coditional_vars.cart_total, 'attributes': {'value': 'cart_total'}},
                         {'name': coditional_vars.cart_totalafter, 'attributes': {'value': 'cart_totalafter'}},
+                        {'name': coditional_vars.cart_subtotal_specific_products_disabled, 'attributes': {'value': 'cart_specificproduct_disabled'}},
                         {'name': coditional_vars.cart_quantity_disabled, 'attributes': {'value': 'cart_quantity_disabled'}},
                         {'name': coditional_vars.shipping_class_disabled, 'attributes': {'value': 'shipping_class_disabled'}},
                         {'name': coditional_vars.coupon_disabled, 'attributes': {'value': 'coupon_disabled'}},
@@ -114,6 +116,7 @@
                         {'name': coditional_vars.billing_address_1, 'attributes': {'value': 'billing_address_1'}},
                         {'name': coditional_vars.billing_address_2, 'attributes': {'value': 'billing_address_2'}},
                         {'name': coditional_vars.billing_country, 'attributes': {'value': 'billing_country'}},
+                        {'name': coditional_vars.billing_state, 'attributes': {'value': 'billing_state'}},
                         {'name': coditional_vars.billing_city, 'attributes': {'value': 'billing_city'}},
                         {'name': coditional_vars.billing_postcode, 'attributes': {'value': 'billing_postcode'}},
                         {'name': coditional_vars.billing_email_disabled, 'attributes': {'value': 'billing_email_disabled'}},
@@ -148,6 +151,7 @@
                         {'name': coditional_vars.shipping_address_1, 'attributes': {'value': 'shipping_address_1'}},
                         {'name': coditional_vars.shipping_address_2, 'attributes': {'value': 'shipping_address_2'}},
                         {'name': coditional_vars.shipping_country, 'attributes': {'value': 'shipping_country'}},
+                        {'name': coditional_vars.shipping_state, 'attributes': {'value': 'shipping_state'}},
                         {'name': coditional_vars.shipping_city, 'attributes': {'value': 'shipping_city'}},
                         {'name': coditional_vars.shipping_postcode, 'attributes': {'value': 'shipping_postcode'}},
                     ]
@@ -472,7 +476,7 @@
 
                     if ( condition === 'cart_total' || condition === 'cart_totalafter' || condition === 'date' ) {
                         condition_is = insertOptions(condition_is, condition_types('conditions1'));
-                    } else if( condition === 'product' || condition === 'variable_product' || condition === 'shipping_method' || condition === 'billing_country' || condition === 'shipping_country' || condition === 'day_of_week' ) {
+                    } else if( condition === 'product' || condition === 'variable_product' || condition === 'shipping_method' || condition === 'billing_country' || condition === 'billing_state' || condition === 'shipping_country' || condition === 'shipping_state' || condition === 'day_of_week' ) {
                         condition_is = insertOptions(condition_is, condition_types('conditions2'));
                     } else {
                         condition_is = insertOptions(condition_is, condition_types());

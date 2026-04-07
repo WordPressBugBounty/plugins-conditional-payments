@@ -132,6 +132,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																	<option value="product_categories_disabled"><?php 
         esc_html_e( 'Product Categories 🔒', 'conditional-payments' );
         ?></option>
+																	<option value="product_brands_disabled"><?php 
+        esc_html_e( 'Product Brands 🔒', 'conditional-payments' );
+        ?></option>
 																	<option value="product_tags_disabled"><?php 
         esc_html_e( 'Product Tags 🔒', 'conditional-payments' );
         ?></option>
@@ -165,6 +168,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
         ?></option>
 														<?php 
         ?>
+																	<option value="cart_specificproduct_disabled"><?php 
+        esc_html_e( 'Cart Subtotal (Specific Products) 🔒', 'conditional-payments' );
+        ?></option>
 																	<option value="cart_quantity_disabled"><?php 
         esc_html_e( 'Cart Quantity 🔒', 'conditional-payments' );
         ?></option>
@@ -227,6 +233,11 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
         echo ( 'billing_country' === $payment_conditions ? 'selected' : '' );
         ?>><?php 
         esc_html_e( 'Country', 'conditional-payments' );
+        ?></option>
+														<option value="billing_state" <?php 
+        echo ( 'billing_state' === $payment_conditions ? 'selected' : '' );
+        ?>><?php 
+        esc_html_e( 'State / Province', 'conditional-payments' );
         ?></option>
 														<option value="billing_city" <?php 
         echo ( 'billing_city' === $payment_conditions ? 'selected' : '' );
@@ -309,6 +320,11 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
         ?>><?php 
         esc_html_e( 'Country', 'conditional-payments' );
         ?></option>
+														<option value="shipping_state" <?php 
+        echo ( 'shipping_state' === $payment_conditions ? 'selected' : '' );
+        ?>><?php 
+        esc_html_e( 'State / Province', 'conditional-payments' );
+        ?></option>
 														<option value="shipping_city" <?php 
         echo ( 'shipping_city' === $payment_conditions ? 'selected' : '' );
         ?>><?php 
@@ -345,7 +361,7 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 											</th>
 											<td class="select_condition_for_in_notin">
 												<?php 
-        if ( 'cart_total' === $payment_conditions || 'cart_totalafter' === $payment_conditions || 'cart_quantity' === $payment_conditions || 'previous_order' === $payment_conditions || 'product_quantity' === $payment_conditions || 'total_weight' === $payment_conditions || 'number_of_items' === $payment_conditions || 'total_volume' === $payment_conditions || 'date' === $payment_conditions || 'time' === $payment_conditions ) {
+        if ( 'cart_total' === $payment_conditions || 'cart_totalafter' === $payment_conditions || 'cart_specificproduct' === $payment_conditions || 'cart_quantity' === $payment_conditions || 'previous_order' === $payment_conditions || 'product_quantity' === $payment_conditions || 'total_weight' === $payment_conditions || 'number_of_items' === $payment_conditions || 'total_volume' === $payment_conditions || 'date' === $payment_conditions || 'time' === $payment_conditions ) {
             ?>
 												<select name="payment[payments_conditions_is][]"
 												        class="payments_conditions_is payments_conditions_is_<?php 
@@ -383,7 +399,7 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             ?></option>
 												</select>
 												<?php 
-        } elseif ( 'product' === $payment_conditions || 'variable_product' === $payment_conditions || 'shipping_method' === $payment_conditions || 'billing_country' === $payment_conditions || 'shipping_country' === $payment_conditions || 'day_of_week' === $payment_conditions || 'product_visibility' === $payment_conditions || 'multi_currency' === $payment_conditions ) {
+        } elseif ( 'product' === $payment_conditions || 'variable_product' === $payment_conditions || 'shipping_method' === $payment_conditions || 'billing_country' === $payment_conditions || 'billing_state' === $payment_conditions || 'shipping_country' === $payment_conditions || 'shipping_state' === $payment_conditions || 'day_of_week' === $payment_conditions || 'product_visibility' === $payment_conditions || 'multi_currency' === $payment_conditions ) {
             ?>
 													<select name="payment[payments_conditions_is][]"
 												        class="payments_conditions_is payments_conditions_is_<?php 
@@ -401,7 +417,7 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             ?></option>
 													</select>
 													<?php 
-        } elseif ( 'billing_email' === $payment_conditions || 'user' === $payment_conditions || 'user_role' === $payment_conditions || 'product_categories' === $payment_conditions || 'product_tags' === $payment_conditions || 'product_type' === $payment_conditions || 'shipping_class' === $payment_conditions || 'coupon' === $payment_conditions || 'product_stock_status' === $payment_conditions ) {
+        } elseif ( 'billing_email' === $payment_conditions || 'user' === $payment_conditions || 'user_role' === $payment_conditions || 'product_categories' === $payment_conditions || 'product_brands' === $payment_conditions || 'product_tags' === $payment_conditions || 'product_type' === $payment_conditions || 'shipping_class' === $payment_conditions || 'coupon' === $payment_conditions || 'product_stock_status' === $payment_conditions ) {
         } elseif ( 'customer_authenticated' === $payment_conditions ) {
         } else {
             ?>
@@ -448,7 +464,7 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             $html .= '<input type="number" min="0" step="any" name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "payment_conditions_values" value = "' . esc_attr( $condtion_value ) . '">';
         } elseif ( 'cart_totalafter' === $payment_conditions ) {
             $html .= '<input type="number" min="0" step="any" name="payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class="payment_conditions_values" value="' . esc_attr( $condtion_value ) . '">';
-            $html .= sprintf( wp_kses( __( '<p><b style="color: red;">Note: </b>This rule will apply when you would apply coupun in front side. <a href="%s" target="_blank">Click Here</a>.</p>', 'conditional-payments' ), array(
+            $html .= sprintf( wp_kses( __( '<p><b style="color: red;">Note: </b>This rule will apply when you would apply coupon in front side. <a href="%s" target="_blank">Click Here</a>.</p>', 'conditional-payments' ), array(
                 'p' => array(),
                 'b' => array(
                     'style' => array(),
@@ -458,6 +474,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
                     'target' => array(),
                 ),
             ) ), esc_url( 'https://docs.thedotstore.com/collection/485-conditional-payments' ) );
+        } elseif ( 'cart_specificproduct' === $payment_conditions ) {
+            $html .= '<input type="number" min="0" step="any" name="payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class="payment_conditions_values" value="' . esc_attr( $condtion_value ) . '">';
+            $html .= wp_kses_post( sprintf( '<p><b style="color: red;">%s</b>%s</p>', esc_html__( 'Note: ', 'conditional-payments' ), esc_html__( 'This rule will only work if you have selected any one Product Specific option.', 'conditional-payments' ) ) );
         } elseif ( 'shipping_method' === $payment_conditions ) {
             $html .= $dscpw_admin_object->dscpw_get_shipping_methods_list( $i, $condtion_value );
         } elseif ( 'billing_first_name' === $payment_conditions ) {
@@ -472,6 +491,8 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             $html .= '<input type = "text" name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "' . $val_class . '" value = "' . esc_attr( $condtion_value ) . '">';
         } elseif ( 'billing_country' === $payment_conditions ) {
             $html .= $dscpw_admin_object->dscpw_get_country_list( $i, $condtion_value );
+        } elseif ( 'billing_state' === $payment_conditions ) {
+            $html .= $dscpw_admin_object->dscpw_get_states_list( $i, $condtion_value );
         } elseif ( 'billing_city' === $payment_conditions ) {
             $html .= '<textarea name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "' . $val_class . '">' . esc_html( $condtion_value ) . '</textarea>';
             if ( 'is_empty' !== $condition_is && 'is_not_empty' !== $condition_is ) {
@@ -504,6 +525,8 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
             $html .= '<input type = "text" name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "' . $val_class . '" value = "' . esc_attr( $condtion_value ) . '">';
         } elseif ( 'shipping_country' === $payment_conditions ) {
             $html .= $dscpw_admin_object->dscpw_get_country_list( $i, $condtion_value );
+        } elseif ( 'shipping_state' === $payment_conditions ) {
+            $html .= $dscpw_admin_object->dscpw_get_states_list( $i, $condtion_value );
         } elseif ( 'shipping_city' === $payment_conditions ) {
             $html .= '<textarea name = "payment[payment_conditions_values][value_' . esc_attr( $i ) . ']" class = "' . $val_class . '">' . esc_html( $condtion_value ) . '</textarea>';
             if ( 'is_empty' !== $condition_is && 'is_not_empty' !== $condition_is ) {
@@ -566,6 +589,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
 																	<option value="product_categories_disabled"><?php 
     esc_html_e( 'Product Categories 🔒', 'conditional-payments' );
     ?></option>
+																	<option value="product_brands_disabled"><?php 
+    esc_html_e( 'Product Brands 🔒', 'conditional-payments' );
+    ?></option>
 																	<option value="product_tags_disabled"><?php 
     esc_html_e( 'Product Tags 🔒', 'conditional-payments' );
     ?></option>
@@ -595,6 +621,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
     ?></option>
 														<?php 
     ?>
+																	<option value="cart_specificproduct_disabled"><?php 
+    esc_html_e( 'Cart Subtotal (Specific Products) 🔒', 'conditional-payments' );
+    ?></option>
 																	<option value="cart_quantity_disabled"><?php 
     esc_html_e( 'Cart Quantity 🔒', 'conditional-payments' );
     ?></option>
@@ -643,6 +672,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
     ?></option>
 														<option value="billing_country"><?php 
     esc_html_e( 'Country', 'conditional-payments' );
+    ?></option>
+														<option value="billing_state"><?php 
+    esc_html_e( 'State / Province', 'conditional-payments' );
     ?></option>
 														<option value="billing_city"><?php 
     esc_html_e( 'City', 'conditional-payments' );
@@ -708,6 +740,9 @@ if ( isset( $cp_metabox ) && !empty( $cp_metabox ) ) {
     ?></option>
 														<option value="shipping_country"><?php 
     esc_html_e( 'Country', 'conditional-payments' );
+    ?></option>
+														<option value="shipping_state"><?php 
+    esc_html_e( 'State / Province', 'conditional-payments' );
     ?></option>
 														<option value="shipping_city"><?php 
     esc_html_e( 'City', 'conditional-payments' );

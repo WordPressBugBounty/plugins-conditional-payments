@@ -315,6 +315,10 @@ if ( ! class_exists( 'DSCPW_Conditional_Payments_Table' ) ) {
 		 * @since 1.0.0
 		 */
 		public function process_bulk_action() {
+			if ( ! current_user_can( 'manage_woocommerce' ) ) {
+				return;
+			}
+
 			$delete_nonce     = filter_input( INPUT_POST, '_wpnonce', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
 			$get_method_id_cb = filter_input( INPUT_POST, 'method_id_cb', FILTER_SANITIZE_NUMBER_INT, FILTER_REQUIRE_ARRAY );
 			$method_id_cb     = ! empty( $get_method_id_cb ) ? array_map( 'sanitize_text_field', wp_unslash( $get_method_id_cb ) ) : array();
@@ -328,7 +332,7 @@ if ( ! class_exists( 'DSCPW_Conditional_Payments_Table' ) ) {
 
 			$deletenonce = wp_verify_nonce( $delete_nonce, 'bulk-shippingmethods' );
 
-			if ( 1 !== $deletenonce ) {
+			if ( ! empty( $deletenonce ) && 1 !== $deletenonce ) {
 				return;
 			}
 

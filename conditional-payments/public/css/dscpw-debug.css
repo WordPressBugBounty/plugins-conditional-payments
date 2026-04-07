@@ -16,5 +16,5 @@
 #dscpw-debug .dscpw-debug-result-label.dscpw-debug-result-label-fail,#dscpw-debug .dscpw-debug-result-label.dscpw-debug-result-label-{background:#c92a2a;}
 #dscpw-debug table.dscpw-debug-table{border:1px solid #e4e4e4;margin:0 0 20px;}
 #dscpw-debug table.dscpw-debug-table.dscpw-debug-table-fixed{table-layout:fixed;}
-#dscpw-debug table.dscpw-debug-table td,#dscpw-debug table.dscpw-debug-table th{padding:8px 14px;}
+#dscpw-debug table.dscpw-debug-table td,#dscpw-debug table.dscpw-debug-table th{padding:8px 14px;text-align:left;}
 #dscpw-debug table.dscpw-debug-table td.align-right,#dscpw-debug table.dscpw-debug-table th.align-right{text-align:right;}

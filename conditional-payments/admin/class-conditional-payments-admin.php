@@ -80,6 +80,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 'billing_address_1'        => esc_html__( 'Address', 'conditional-payments' ),
                 'billing_address_2'        => esc_html__( 'Address 2', 'conditional-payments' ),
                 'billing_country'          => esc_html__( 'Country', 'conditional-payments' ),
+                'billing_state'            => esc_html__( 'State / Province', 'conditional-payments' ),
                 'billing_city'             => esc_html__( 'City', 'conditional-payments' ),
                 'billing_postcode'         => esc_html__( 'Postcode', 'conditional-payments' ),
                 'shipping_first_name'      => esc_html__( 'First Name', 'conditional-payments' ),
@@ -88,6 +89,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 'shipping_address_1'       => esc_html__( 'Address', 'conditional-payments' ),
                 'shipping_address_2'       => esc_html__( 'Address 2', 'conditional-payments' ),
                 'shipping_country'         => esc_html__( 'Country', 'conditional-payments' ),
+                'shipping_state'           => esc_html__( 'State / Province', 'conditional-payments' ),
                 'shipping_city'            => esc_html__( 'City', 'conditional-payments' ),
                 'shipping_postcode'        => esc_html__( 'Postcode', 'conditional-payments' ),
                 'equal_to'                 => esc_html__( 'Equal to ( = )', 'conditional-payments' ),
@@ -115,6 +117,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 'is_multi_curcy_available' => ( function_exists( 'dscpw_check_multi_curcy_available' ) ? dscpw_check_multi_curcy_available() : false ),
             );
             $allConditions['product_categories_disabled'] = esc_html__( 'Product Categories 🔒', 'conditional-payments' );
+            $allConditions['product_brands_disabled'] = esc_html__( 'Product Brands 🔒', 'conditional-payments' );
             $allConditions['product_tags_disabled'] = esc_html__( 'Product Tags 🔒', 'conditional-payments' );
             $allConditions['product_type_disabled'] = esc_html__( 'Product Type 🔒', 'conditional-payments' );
             $allConditions['billing_email_disabled'] = esc_html__( 'Email 🔒', 'conditional-payments' );
@@ -124,6 +127,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $allConditions['user_role_disabled'] = esc_html__( 'User Role 🔒', 'conditional-payments' );
             $allConditions['user_disabled'] = esc_html__( 'User 🔒', 'conditional-payments' );
             $allConditions['cart_quantity_disabled'] = esc_html__( 'Cart Quantity 🔒', 'conditional-payments' );
+            $allConditions['cart_subtotal_specific_products_disabled'] = esc_html__( 'Cart Subtotal (Specific Products) 🔒', 'conditional-payments' );
             $allConditions['shipping_class_disabled'] = esc_html__( 'Shipping Class 🔒', 'conditional-payments' );
             $allConditions['coupon_disabled'] = esc_html__( 'Coupon 🔒', 'conditional-payments' );
             $allConditions['previous_order_disabled'] = esc_html__( 'Previous Order 🔒', 'conditional-payments' );
@@ -138,7 +142,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $allConditions['shipping_postcode_msg'] = esc_html__( 'Add only one post/zip code in a Line. You can add multiple postcode in each new line.', 'conditional-payments' );
             $allConditions['billing_postcode_msg'] = esc_html__( 'Add only one post/zip code in a Line. You can add multiple postcode in each new line.', 'conditional-payments' );
             $allConditions['billing_phone_msg'] = esc_html__( 'Add only one phone number in a Line. You can add multiple phone number in each new line. ', 'conditional-payments' );
-            $allConditions['cart_totalafter_msg'] = esc_html__( 'This rule will apply when you would apply coupun in front side. ', 'conditional-payments' );
+            $allConditions['cart_totalafter_msg'] = esc_html__( 'This rule will apply when you would apply coupon in front side. ', 'conditional-payments' );
             $allConditions['click_here'] = esc_html__( 'Click Here.', 'conditional-payments' );
             $allConditions['docs_url'] = esc_url( 'https://docs.thedotstore.com/collection/485-conditional-payments', 'conditional-payments' );
             $allConditions['time_disabled'] = esc_html__( 'Time 🔒', 'conditional-payments' );
@@ -244,6 +248,45 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         }
 
         /**
+         * Print Payments sub-navigation when WooCommerce hides it (React Payments / reactified sections).
+         *
+         * WC_Settings_Payment_Gateways::get_sections() returns an empty array on those screens,
+         * so core output_sections() prints nothing and the "Conditions" link from
+         * woocommerce_get_sections_checkout is never applied. Mirror the classic "General | …" row.
+         *
+         * @since 1.2.3
+         */
+        public function dscpw_output_payments_subnav_when_hidden() {
+            if ( !class_exists( 'WC_Admin_Settings', false ) ) {
+                return;
+            }
+            global $current_tab, $current_section;
+            if ( 'checkout' !== $current_tab ) {
+                return;
+            }
+            $checkout_page = null;
+            foreach ( WC_Admin_Settings::get_settings_pages() as $page ) {
+                if ( 'checkout' === $page->get_id() ) {
+                    $checkout_page = $page;
+                    break;
+                }
+            }
+            if ( !$checkout_page || !empty( $checkout_page->get_sections() ) ) {
+                return;
+            }
+            $section = ( isset( $current_section ) ? (string) $current_section : '' );
+            $is_main = '' === $section;
+            $is_conditions = 'dscpw_conditional_payments' === $section;
+            $main_url = admin_url( 'admin.php?page=wc-settings&tab=checkout' );
+            $conditions_url = admin_url( 'admin.php?page=wc-settings&tab=checkout&section=dscpw_conditional_payments' );
+            $general_label = __( 'General', 'conditional-payments' );
+            echo '<ul class="subsubsub">';
+            echo '<li><a href="' . esc_url( $main_url ) . '" class="' . (( $is_main ? 'current' : '' )) . '">' . esc_html( $general_label ) . '</a> | </li>';
+            echo '<li><a href="' . esc_url( $conditions_url ) . '" class="' . (( $is_conditions ? 'current' : '' )) . '">' . esc_html__( 'Conditions', 'conditional-payments' ) . '</a></li>';
+            echo '</ul><br class="clear" />';
+        }
+
+        /**
          * Conditional Payments List Page
          *
          * @since    1.0.0
@@ -268,17 +311,19 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             }
             if ( 'dscpw_conditional_payments' === $section ) {
                 if ( 'created' === $message ) {
-                    $updated_message = esc_html__( "Conditional paymets rule created.", 'conditional-payments' );
+                    $updated_message = esc_html__( "Conditional payments rule created.", 'conditional-payments' );
                 } elseif ( 'saved' === $message ) {
-                    $updated_message = esc_html__( "Conditional paymets rule updated.", 'conditional-payments' );
+                    $updated_message = esc_html__( "Conditional payments rule updated.", 'conditional-payments' );
                 } elseif ( 'deleted' === $message ) {
-                    $updated_message = esc_html__( "Conditional paymets rule deleted.", 'conditional-payments' );
+                    $updated_message = esc_html__( "Conditional payments rule deleted.", 'conditional-payments' );
                 } elseif ( 'duplicated' === $message ) {
-                    $updated_message = esc_html__( "Conditional paymets rule duplicated.", 'conditional-payments' );
+                    $updated_message = esc_html__( "Conditional payments rule duplicated.", 'conditional-payments' );
                 } elseif ( 'disabled' === $message ) {
-                    $updated_message = esc_html__( "Conditional paymets rule disabled.", 'conditional-payments' );
+                    $updated_message = esc_html__( "Conditional payments rule disabled.", 'conditional-payments' );
                 } elseif ( 'enabled' === $message ) {
-                    $updated_message = esc_html__( "Conditional paymets rule enabled.", 'conditional-payments' );
+                    $updated_message = esc_html__( "Conditional payments rule enabled.", 'conditional-payments' );
+                } elseif ( 'debug_saved' === $message ) {
+                    $updated_message = esc_html__( "Debug mode settings saved.", 'conditional-payments' );
                 }
                 if ( 'failed' === $message ) {
                     $failed_messsage = esc_html__( "There was an error with saving data.", 'conditional-payments' );
@@ -330,6 +375,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_conditional_payments_conditions_values_ajax() {
             // Security check
             check_ajax_referer( 'dscpw_nonce', 'security' );
+            if ( !current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( esc_html__( 'Sorry, you are not allowed to do this.', 'conditional-payments' ), '', array(
+                    'response' => 403,
+                ) );
+            }
             // Add new condition
             $get_condition = filter_input( INPUT_GET, 'condition', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $get_count = filter_input( INPUT_GET, 'count', FILTER_SANITIZE_NUMBER_INT );
@@ -338,6 +388,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $html = '';
             if ( 'billing_country' === $condition ) {
                 $html .= wp_json_encode( $this->dscpw_get_country_list( $count, [], true ) );
+            } elseif ( 'billing_state' === $condition ) {
+                $html .= wp_json_encode( $this->dscpw_get_states_list( $count, [], true ) );
             } elseif ( 'billing_first_name' === $condition ) {
                 $html .= 'input';
             } elseif ( 'billing_last_name' === $condition ) {
@@ -354,6 +406,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 $html .= 'textarea';
             } elseif ( 'shipping_country' === $condition ) {
                 $html .= wp_json_encode( $this->dscpw_get_country_list( $count, [], true ) );
+            } elseif ( 'shipping_state' === $condition ) {
+                $html .= wp_json_encode( $this->dscpw_get_states_list( $count, [], true ) );
             } elseif ( 'shipping_first_name' === $condition ) {
                 $html .= 'input';
             } elseif ( 'shipping_last_name' === $condition ) {
@@ -375,6 +429,8 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             } elseif ( 'cart_total' === $condition ) {
                 $html .= 'input';
             } elseif ( 'cart_totalafter' === $condition ) {
+                $html .= 'input';
+            } elseif ( 'cart_specificproduct' === $condition ) {
                 $html .= 'input';
             } elseif ( 'shipping_method' === $condition ) {
                 $html .= wp_json_encode( $this->dscpw_get_shipping_methods_list( $count, [], true ) );
@@ -399,6 +455,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_conditional_payments_actions_values_ajax() {
             // Security check
             check_ajax_referer( 'dscpw_nonce', 'security' );
+            if ( !current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( esc_html__( 'Sorry, you are not allowed to do this.', 'conditional-payments' ), '', array(
+                    'response' => 403,
+                ) );
+            }
             // Add new action
             $get_actions = filter_input( INPUT_GET, 'payment_action', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $get_count = filter_input( INPUT_GET, 'payment_count', FILTER_SANITIZE_NUMBER_INT );
@@ -447,6 +508,41 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         }
 
         /**
+         * Get state/province list (values as country_code:state_code, same as WooCommerce zones).
+         *
+         * @param string $count
+         * @param array  $selected
+         * @param bool   $json
+         *
+         * @return string|array
+         * @since  1.2.3
+         */
+        public function dscpw_get_states_list( $count = '', $selected = array(), $json = false ) {
+            $countries_obj = new WC_Countries();
+            $get_countries = $countries_obj->__get( 'countries' );
+            $html = '<select name="payment[payment_conditions_values][value_' . esc_attr( $count ) . '][]" class="dscpw_select multiselect2 payment_conditions_values payment_conditions_values_state" multiple="multiple">';
+            $filter_states = array();
+            if ( !empty( $get_countries ) ) {
+                foreach ( $get_countries as $country_code => $country_name ) {
+                    $states = $countries_obj->get_states( $country_code );
+                    if ( !empty( $states ) && is_array( $states ) ) {
+                        foreach ( $states as $state_code => $state_name ) {
+                            $value = $country_code . ':' . $state_code;
+                            $selected_val = ( is_array( $selected ) && !empty( $selected ) && in_array( $value, $selected, true ) ? 'selected=selected' : '' );
+                            $html .= '<option value="' . esc_attr( $value ) . '" ' . esc_attr( $selected_val ) . '>' . esc_html( $country_name . ' -> ' . $state_name ) . '</option>';
+                            $filter_states[$value] = $country_name . ' -> ' . $state_name;
+                        }
+                    }
+                }
+            }
+            $html .= '</select>';
+            if ( $json ) {
+                return $this->dscpw_convert_array_to_json( $filter_states );
+            }
+            return $html;
+        }
+
+        /**
          * Get product list
          *
          * @param string $count
@@ -457,7 +553,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
          *
          */
         public function dscpw_get_product_list_select_box( $count = '', $json = false ) {
-            $html = '<select id="product-filter-' . esc_attr( $count ) . '" rel-id="' . esc_attr( $count ) . '" name="payment[payment_conditions_values][value_' . esc_attr( $count ) . '][]" class="dscpw_select payment_conditions_values multiselect2 payment_conditions_values_product" data-placeholder="' . esc_attr( 'Please enter 3 or more characters', 'conditional-payments' ) . '" multiple="multiple">';
+            $html = '<select id="product-filter-' . esc_attr( $count ) . '" rel-id="' . esc_attr( $count ) . '" name="payment[payment_conditions_values][value_' . esc_attr( $count ) . '][]" class="dscpw_select payment_conditions_values multiselect2 payment_conditions_values_product" data-placeholder="' . esc_attr( __( 'Please enter 3 or more characters', 'conditional-payments' ) ) . '" multiple="multiple">';
             $html .= '</select>';
             if ( $json ) {
                 return [];
@@ -503,12 +599,15 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
                 'order'          => 'ASC',
                 'post__in'       => $post_in,
             ));
-            $html = '<select id="product-filter-' . esc_attr( $count ) . '" rel-id="' . esc_attr( $count ) . '" name="payment[payment_conditions_values][value_' . esc_attr( $count ) . '][]" class="dscpw_select payment_conditions_values multiselect2 payment_conditions_values_product" data-placeholder="' . esc_attr( 'Please enter 3 or more characters', 'conditional-payments' ) . '" multiple="multiple">';
+            $html = '<select id="product-filter-' . esc_attr( $count ) . '" rel-id="' . esc_attr( $count ) . '" name="payment[payment_conditions_values][value_' . esc_attr( $count ) . '][]" class="dscpw_select payment_conditions_values multiselect2 payment_conditions_values_product" data-placeholder="' . esc_attr( __( 'Please enter 3 or more characters', 'conditional-payments' ) ) . '" multiple="multiple">';
             if ( isset( $get_all_products->posts ) && !empty( $get_all_products->posts ) ) {
                 foreach ( $get_all_products->posts as $get_all_product ) {
                     $_product = wc_get_product( $get_all_product );
+                    if ( !is_a( $_product, 'WC_Product' ) ) {
+                        continue;
+                    }
                     $new_product_id = '';
-                    if ( $_product->is_type( 'simple' ) ) {
+                    if ( $_product->is_type( 'simple' ) || $_product->is_type( 'subscription' ) || $_product->is_type( 'booking' ) ) {
                         if ( !empty( $sitepress ) ) {
                             $new_product_id = apply_filters(
                                 'wpml_object_id',
@@ -643,6 +742,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_conditional_payments_product_list_ajax() {
             // Security check
             check_ajax_referer( 'dscpw_nonce', 'security' );
+            if ( !current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( esc_html__( 'Sorry, you are not allowed to do this.', 'conditional-payments' ), '', array(
+                    'response' => 403,
+                ) );
+            }
             // Get products list
             global $sitepress;
             $default_lang = $this->dscpw_get_default_language_with_sitepress();
@@ -690,7 +794,10 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             if ( isset( $get_all_products ) && !empty( $get_all_products ) ) {
                 foreach ( $get_all_products as $get_all_product ) {
                     $_product = wc_get_product( $get_all_product->ID );
-                    if ( $_product->is_type( 'simple' ) ) {
+                    if ( !is_a( $_product, 'WC_Product' ) ) {
+                        continue;
+                    }
+                    if ( $_product->is_type( 'simple' ) || $_product->is_type( 'subscription' ) || $_product->is_type( 'booking' ) ) {
                         if ( !empty( $sitepress ) ) {
                             $defaultlang_product_id = apply_filters(
                                 'wpml_object_id',
@@ -735,6 +842,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_conditional_payments_variable_product_list_ajax() {
             // Security check
             check_ajax_referer( 'dscpw_nonce', 'security' );
+            if ( !current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( esc_html__( 'Sorry, you are not allowed to do this.', 'conditional-payments' ), '', array(
+                    'response' => 403,
+                ) );
+            }
             // Get variable products list
             global $sitepress;
             $default_lang = $this->dscpw_get_default_language_with_sitepress();
@@ -781,6 +893,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             if ( !empty( $get_all_products ) ) {
                 foreach ( $get_all_products->posts as $get_all_product ) {
                     $_product = wc_get_product( $get_all_product->ID );
+                    if ( !is_a( $_product, 'WC_Product' ) ) {
+                        continue;
+                    }
                     if ( $_product->is_type( 'variable' ) ) {
                         $variations = $_product->get_available_variations();
                         foreach ( $variations as $value ) {
@@ -1265,6 +1380,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
         public function dscpw_change_status_from_listing_page() {
             // Security check
             check_ajax_referer( 'dscpw_nonce', 'security' );
+            if ( !current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( esc_html__( 'Sorry, you are not allowed to do this.', 'conditional-payments' ), '', array(
+                    'response' => 403,
+                ) );
+            }
             // Enable & disable rule status
             global $sitepress;
             $default_lang = $this->dscpw_get_default_language_with_sitepress();
@@ -1283,6 +1403,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Admin' ) ) {
             $get_current_value = filter_input( INPUT_GET, 'current_value', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $get_post_id = ( isset( $get_current_rule_id ) ? absint( $get_current_rule_id ) : '' );
             if ( empty( $get_post_id ) ) {
+                echo '<strong>' . esc_html__( 'Something went wrong', 'conditional-payments' ) . '</strong>';
+                wp_die();
+            }
+            $rule_post = get_post( $get_post_id );
+            if ( !$rule_post || self::post_type !== $rule_post->post_type ) {
                 echo '<strong>' . esc_html__( 'Something went wrong', 'conditional-payments' ) . '</strong>';
                 wp_die();
             }

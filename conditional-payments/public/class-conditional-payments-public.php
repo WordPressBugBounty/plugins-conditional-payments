@@ -123,13 +123,16 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
          *
          */
         public function dscpw_update_block_check_payment_methods() {
+            if ( !function_exists( 'woocommerce_store_api_register_update_callback' ) ) {
+                return;
+            }
             woocommerce_store_api_register_update_callback( array(
                 'namespace' => 'dscpw-chosen-payment-method',
                 'callback'  => function ( $data ) {
                     if ( !isset( $data['method'] ) ) {
                         return;
                     }
-                    wc()->session->set( 'chosen_payment_method', $data['method'] );
+                    WC()->session->set( 'chosen_payment_method', $data['method'] );
                     if ( isset( $data['billingData'] ) ) {
                         $billing_data = $data['billingData']['billingAddress'];
                         $shipping_data = $data['billingData']['shippingAddress'];
@@ -233,6 +236,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                 $billing_address_1_array = array();
                 $billing_address_2_array = array();
                 $billing_country_array = array();
+                $billing_state_array = array();
                 $billing_city_array = array();
                 $billing_postcode_array = array();
                 $shipping_firstname_array = array();
@@ -241,6 +245,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                 $shipping_address_1_array = array();
                 $shipping_address_2_array = array();
                 $shipping_country_array = array();
+                $shipping_state_array = array();
                 $shipping_city_array = array();
                 $shipping_postcode_array = array();
                 $day_of_week_array = array();
@@ -279,6 +284,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     if ( array_search( 'billing_country', $value, true ) ) {
                         $billing_country_array[$key] = $value;
                     }
+                    if ( array_search( 'billing_state', $value, true ) ) {
+                        $billing_state_array[$key] = $value;
+                    }
                     if ( array_search( 'billing_city', $value, true ) ) {
                         $billing_city_array[$key] = $value;
                     }
@@ -305,6 +313,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     }
                     if ( array_search( 'shipping_country', $value, true ) ) {
                         $shipping_country_array[$key] = $value;
+                    }
+                    if ( array_search( 'shipping_state', $value, true ) ) {
+                        $shipping_state_array[$key] = $value;
                     }
                     if ( array_search( 'shipping_city', $value, true ) ) {
                         $shipping_city_array[$key] = $value;
@@ -467,6 +478,15 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed['has_condition_based_on_billing_country'] = 'no';
                         }
                     }
+                    //Check if is billing state exist
+                    if ( is_array( $billing_state_array ) && isset( $billing_state_array ) && !empty( $billing_state_array ) && !empty( $cart_product_ids_array ) ) {
+                        $billing_state_passed = $this->dscpw_match_billing_state_rules( $billing_state_array, $general_rule_match, $cp_post_data->ID );
+                        if ( 'yes' === $billing_state_passed ) {
+                            $is_passed['has_condition_based_on_billing_state'] = 'yes';
+                        } else {
+                            $is_passed['has_condition_based_on_billing_state'] = 'no';
+                        }
+                    }
                     //Check if is billing city exist
                     if ( is_array( $billing_city_array ) && isset( $billing_city_array ) && !empty( $billing_city_array ) && !empty( $cart_product_ids_array ) ) {
                         $billing_city_passed = $this->dscpw_match_billing_city_rules(
@@ -569,6 +589,15 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                             $is_passed['has_condition_based_on_shipping_country'] = 'no';
                         }
                     }
+                    //Check if is shipping state exist
+                    if ( is_array( $shipping_state_array ) && isset( $shipping_state_array ) && !empty( $shipping_state_array ) && !empty( $cart_product_ids_array ) ) {
+                        $shipping_state_passed = $this->dscpw_match_shipping_state_rules( $shipping_state_array, $general_rule_match, $cp_post_data->ID );
+                        if ( 'yes' === $shipping_state_passed ) {
+                            $is_passed['has_condition_based_on_shipping_state'] = 'yes';
+                        } else {
+                            $is_passed['has_condition_based_on_shipping_state'] = 'no';
+                        }
+                    }
                     //Check if is shipping city exist
                     if ( is_array( $shipping_city_array ) && isset( $shipping_city_array ) && !empty( $shipping_city_array ) && !empty( $cart_product_ids_array ) ) {
                         $shipping_city_passed = $this->dscpw_match_shipping_city_rules(
@@ -647,9 +676,11 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                 'billing_first_name',
                 'billing_last_name',
                 'billing_company',
+                'billing_state',
                 'shipping_first_name',
                 'shipping_last_name',
                 'shipping_company',
+                'shipping_state',
                 'billing_email',
                 'billing_phone'
             );
@@ -660,6 +691,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                     'billing_first_name',
                     'billing_last_name',
                     'billing_company',
+                    'billing_state',
                     'billing_email',
                     'billing_phone'
                 );
@@ -721,6 +753,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
                             settype( $product_id, 'integer' );
                             $_product = wc_get_product( $product_id );
+                            if ( !is_a( $_product, 'WC_Product' ) ) {
+                                continue;
+                            }
                             $product_name = $_product->get_name();
                             $selected_products[] = $product_name;
                             if ( in_array( $product_id, $cart_product_ids_array, true ) ) {
@@ -753,6 +788,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
                             $_product = wc_get_product( $product_id );
+                            if ( !is_a( $_product, 'WC_Product' ) ) {
+                                continue;
+                            }
                             $product_name = $_product->get_name();
                             $selected_products[] = $product_name;
                             settype( $product_id, 'integer' );
@@ -812,6 +850,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
                             $_product = wc_get_product( $product_id );
+                            if ( !is_a( $_product, 'WC_Product' ) ) {
+                                continue;
+                            }
                             $product_name = $_product->get_name();
                             $selected_products[] = $product_name;
                             settype( $product_id, 'integer' );
@@ -845,6 +886,9 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                         $selected_products = array();
                         foreach ( $product['payment_conditions_values'] as $product_id ) {
                             $_product = wc_get_product( $product_id );
+                            if ( !is_a( $_product, 'WC_Product' ) ) {
+                                continue;
+                            }
                             $product_name = $_product->get_name();
                             $selected_products[] = $product_name;
                             settype( $product_id, 'integer' );
@@ -2078,6 +2122,99 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
         }
 
         /**
+         * Match billing state / province rules (values as country:state, e.g. US:CA).
+         *
+         * @param array  $billing_state_array
+         * @param string $general_rule_match
+         * @param int    $rule_id
+         *
+         * @return string
+         *
+         * @since 1.2.3
+         *
+         * @uses WC_Customer::get_billing_country()
+         * @uses WC_Customer::get_billing_state()
+         */
+        public function dscpw_match_billing_state_rules( $billing_state_array, $general_rule_match, $rule_id ) {
+            $country = WC()->customer->get_billing_country();
+            $state = WC()->customer->get_billing_state();
+            $selected_state = $country . ':' . $state;
+            $is_passed = array();
+            $countries_obj = new WC_Countries();
+            $get_countries = $countries_obj->__get( 'countries' );
+            foreach ( $billing_state_array as $key => $row ) {
+                $is_passed[$key]['has_condition_based_on_billing_state'] = 'no';
+                $value_labels = array();
+                if ( !empty( $row['payment_conditions_values'] ) && is_array( $row['payment_conditions_values'] ) ) {
+                    foreach ( $row['payment_conditions_values'] as $code ) {
+                        if ( !is_string( $code ) || false === strpos( $code, ':' ) ) {
+                            $value_labels[] = $code;
+                            continue;
+                        }
+                        list( $cc, $sc ) = explode( ':', $code, 2 );
+                        $states = $countries_obj->get_states( $cc );
+                        $cname = ( isset( $get_countries[$cc] ) ? $get_countries[$cc] : $cc );
+                        $sname = ( is_array( $states ) && isset( $states[$sc] ) ? $states[$sc] : $sc );
+                        $value_labels[] = $cname . ' -> ' . $sname;
+                    }
+                }
+                if ( 'is_equal_to' === $row['payments_conditions_is'] ) {
+                    if ( !empty( $row['payment_conditions_values'] ) ) {
+                        if ( in_array( $selected_state, $row['payment_conditions_values'], true ) ) {
+                            $is_passed[$key]['has_condition_based_on_billing_state'] = 'yes';
+                        } else {
+                            $is_passed[$key]['has_condition_based_on_billing_state'] = 'no';
+                        }
+                    }
+                    if ( empty( $row['payment_conditions_values'] ) ) {
+                        $is_passed[$key]['has_condition_based_on_billing_state'] = 'yes';
+                    }
+                    if ( 'yes' === $is_passed[$key]['has_condition_based_on_billing_state'] ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_state',
+                            'Billing State - is equal to - ' . implode( ', ', $value_labels ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_state',
+                            'Billing State - is equal to - ' . implode( ', ', $value_labels ),
+                            false
+                        );
+                    }
+                }
+                if ( 'not_in' === $row['payments_conditions_is'] ) {
+                    if ( !empty( $row['payment_conditions_values'] ) ) {
+                        if ( in_array( $selected_state, $row['payment_conditions_values'], true ) ) {
+                            $is_passed[$key]['has_condition_based_on_billing_state'] = 'no';
+                        } else {
+                            $is_passed[$key]['has_condition_based_on_billing_state'] = 'yes';
+                        }
+                    }
+                    if ( 'yes' === $is_passed[$key]['has_condition_based_on_billing_state'] ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_state',
+                            'Billing State - not in - ' . implode( ', ', $value_labels ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'billing_state',
+                            'Billing State - not in - ' . implode( ', ', $value_labels ),
+                            false
+                        );
+                    }
+                }
+            }
+            $main_is_passed = $this->dscpw_check_all_passed_general_rule( $is_passed, 'has_condition_based_on_billing_state', $general_rule_match );
+            return $main_is_passed;
+        }
+
+        /**
          * Match billing city rules
          *
          * @param string $attr
@@ -3198,6 +3335,99 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Public' ) ) {
                 }
             }
             $main_is_passed = $this->dscpw_check_all_passed_general_rule( $is_passed, 'has_condition_based_on_shipping_country', $general_rule_match );
+            return $main_is_passed;
+        }
+
+        /**
+         * Match shipping state / province rules (values as country:state, e.g. US:CA).
+         *
+         * @param array  $shipping_state_array
+         * @param string $general_rule_match
+         * @param int    $rule_id
+         *
+         * @return string
+         *
+         * @since 1.2.3
+         *
+         * @uses WC_Customer::get_shipping_country()
+         * @uses WC_Customer::get_shipping_state()
+         */
+        public function dscpw_match_shipping_state_rules( $shipping_state_array, $general_rule_match, $rule_id ) {
+            $country = WC()->customer->get_shipping_country();
+            $state = WC()->customer->get_shipping_state();
+            $selected_state = $country . ':' . $state;
+            $is_passed = array();
+            $countries_obj = new WC_Countries();
+            $get_countries = $countries_obj->__get( 'countries' );
+            foreach ( $shipping_state_array as $key => $row ) {
+                $is_passed[$key]['has_condition_based_on_shipping_state'] = 'no';
+                $value_labels = array();
+                if ( !empty( $row['payment_conditions_values'] ) && is_array( $row['payment_conditions_values'] ) ) {
+                    foreach ( $row['payment_conditions_values'] as $code ) {
+                        if ( !is_string( $code ) || false === strpos( $code, ':' ) ) {
+                            $value_labels[] = $code;
+                            continue;
+                        }
+                        list( $cc, $sc ) = explode( ':', $code, 2 );
+                        $states = $countries_obj->get_states( $cc );
+                        $cname = ( isset( $get_countries[$cc] ) ? $get_countries[$cc] : $cc );
+                        $sname = ( is_array( $states ) && isset( $states[$sc] ) ? $states[$sc] : $sc );
+                        $value_labels[] = $cname . ' -> ' . $sname;
+                    }
+                }
+                if ( 'is_equal_to' === $row['payments_conditions_is'] ) {
+                    if ( !empty( $row['payment_conditions_values'] ) ) {
+                        if ( in_array( $selected_state, $row['payment_conditions_values'], true ) ) {
+                            $is_passed[$key]['has_condition_based_on_shipping_state'] = 'yes';
+                        } else {
+                            $is_passed[$key]['has_condition_based_on_shipping_state'] = 'no';
+                        }
+                    }
+                    if ( empty( $row['payment_conditions_values'] ) ) {
+                        $is_passed[$key]['has_condition_based_on_shipping_state'] = 'yes';
+                    }
+                    if ( 'yes' === $is_passed[$key]['has_condition_based_on_shipping_state'] ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_state',
+                            'Shipping State - is equal to - ' . implode( ', ', $value_labels ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_state',
+                            'Shipping State - is equal to - ' . implode( ', ', $value_labels ),
+                            false
+                        );
+                    }
+                }
+                if ( 'not_in' === $row['payments_conditions_is'] ) {
+                    if ( !empty( $row['payment_conditions_values'] ) ) {
+                        if ( in_array( $selected_state, $row['payment_conditions_values'], true ) ) {
+                            $is_passed[$key]['has_condition_based_on_shipping_state'] = 'no';
+                        } else {
+                            $is_passed[$key]['has_condition_based_on_shipping_state'] = 'yes';
+                        }
+                    }
+                    if ( 'yes' === $is_passed[$key]['has_condition_based_on_shipping_state'] ) {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_state',
+                            'Shipping State - not in - ' . implode( ', ', $value_labels ),
+                            true
+                        );
+                    } else {
+                        $this->dscpw_conditions_debug_data(
+                            $rule_id,
+                            'shipping_state',
+                            'Shipping State - not in - ' . implode( ', ', $value_labels ),
+                            false
+                        );
+                    }
+                }
+            }
+            $main_is_passed = $this->dscpw_check_all_passed_general_rule( $is_passed, 'has_condition_based_on_shipping_state', $general_rule_match );
             return $main_is_passed;
         }
 

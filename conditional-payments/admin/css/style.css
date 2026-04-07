@@ -4,7 +4,7 @@
     --dots-remove: #EF0000;
 }
 .dscpw-section-main *{-webkit-box-sizing:border-box;box-sizing:border-box;}
-.dscpw-section-main{margin:25px 0;}
+.dscpw-section-main{margin:25px 0 50px;}
 .fs-modal input[type=text]:focus,#fs_account .fs-key-value-table input[type=text]:focus,.wp-core-ui input:focus,.wp-core-ui textarea:focus,.wp-core-ui select:focus,.ds-plugin-setup-wizard-main select:focus{border-color:var(--dots-primary);box-shadow:none;outline:none;}
 .dscpw-section-main .form-table td{vertical-align:top;}
 .dscpw-section-main h2{font-size:22px;line-height:normal;margin:22px 0;}
@@ -94,7 +94,7 @@ body .select2-container.select2-container--default .select2-dropdown .select2-re
 .dscpw-section-main .button,.dscpw-section-main .button:focus,.dscpw-section-left .button,.dscpw-section-left .button:focus{border-color:#8c8f94;color:#000;background-color:#fff;transition:all 0.25s ease;outline:none;box-shadow:none;}
 .dscpw-section-main .button:hover,.dscpw-section-left .button:hover{border-color:var(--dots-primary);color:var(--dots-primary);background-color:#fff;}
 .dscpw-section-main .button-primary,.dscpw-section-main .button-primary:hover,.dscpw-section-main .button-primary:focus,.dscpw-section-advanced-settings .button-primary,.dscpw-section-advanced-settings .button-primary:hover,.dscpw-section-advanced-settings .button-primary:focus{background-color:var(--dots-primary);border:1px solid var(--dots-primary);color:#fff;box-shadow:none;}
-.dscpw-section-advanced-settings{padding-top:40px;}
+.dscpw-section-advanced-settings{padding:30px 0 50px;}
 
 /* Plugin other section new design */
 body{background-color: #F2F2F3}

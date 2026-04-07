@@ -67,7 +67,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
             $cust_nonce = filter_input( INPUT_GET, 'cust_nonce', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $get_dscpw_add = filter_input( INPUT_GET, '_wpnonce', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $get_section = filter_input( INPUT_GET, 'section', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
-            $message = filter_input( INPUT_GET, 'message', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+            $message = filter_input( INPUT_GET, 'dscpw_message', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             if ( isset( $action ) && !empty( $action ) ) {
                 if ( 'add' === $action ) {
                     self::dscpw_save_conditional_method();
@@ -127,10 +127,10 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
                 // Clear cache
                 delete_transient( 'dscpw_name_address_fields' );
                 wp_safe_redirect( add_query_arg( array(
-                    'page'    => 'wc-settings',
-                    'tab'     => 'checkout',
-                    'section' => 'dscpw_conditional_payments',
-                    'message' => 'deleted',
+                    'page'          => 'wc-settings',
+                    'tab'           => 'checkout',
+                    'section'       => 'dscpw_conditional_payments',
+                    'dscpw_message' => 'deleted',
                 ), admin_url( 'admin.php' ) ) );
                 exit;
             } else {
@@ -168,9 +168,13 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
             $get_section = filter_input( INPUT_GET, 'section', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $dscpw_save = filter_input( INPUT_POST, 'dscpw_save_debug', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             $woocommerce_save_method_nonce = filter_input( INPUT_POST, 'woocommerce_save_method_nonce', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
-            if ( "dscpw_conditional_payments" === $get_section && isset( $dscpw_save ) ) {
-                if ( empty( $woocommerce_save_method_nonce ) || !wp_verify_nonce( sanitize_text_field( $woocommerce_save_method_nonce ), 'woocommerce_save_method' ) ) {
+            if ( 'dscpw_conditional_payments' === $get_section && isset( $dscpw_save ) ) {
+                if ( !current_user_can( 'manage_woocommerce' ) ) {
+                    return;
+                }
+                if ( empty( $woocommerce_save_method_nonce ) || !wp_verify_nonce( sanitize_text_field( wp_unslash( $woocommerce_save_method_nonce ) ), 'woocommerce_save_method' ) ) {
                     self::$admin_object->dscpw_updated_message( 'nonce_check', $get_section, '' );
+                    return;
                 }
                 $dscpw_enable_debug = filter_input( INPUT_POST, 'dscpw_enable_debug', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
                 if ( isset( $dscpw_enable_debug ) ) {
@@ -178,6 +182,7 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
                 } else {
                     update_option( 'dscpw_enable_debug', 'no' );
                 }
+                self::$admin_object->dscpw_updated_message( 'debug_saved', $get_section, '' );
             }
         }
 
@@ -200,8 +205,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
             $woocommerce_save_method_nonce = filter_input( INPUT_POST, 'woocommerce_save_method_nonce', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
             if ( isset( $action ) && !empty( $action ) ) {
                 if ( isset( $dscpw_save ) ) {
-                    if ( empty( $woocommerce_save_method_nonce ) || !wp_verify_nonce( sanitize_text_field( $woocommerce_save_method_nonce ), 'woocommerce_save_method' ) ) {
+                    if ( !current_user_can( 'manage_woocommerce' ) ) {
+                        return;
+                    }
+                    if ( empty( $woocommerce_save_method_nonce ) || !wp_verify_nonce( sanitize_text_field( wp_unslash( $woocommerce_save_method_nonce ) ), 'woocommerce_save_method' ) ) {
                         self::$admin_object->dscpw_updated_message( 'nonce_check', $get_section, '' );
+                        return;
                     }
                     $dscpw_cp_status = filter_input( INPUT_POST, 'dscpw_cp_status', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
                     $dscpw_cp_rule_name = filter_input( INPUT_POST, 'dscpw_cp_rule_name', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
@@ -338,25 +347,25 @@ if ( !class_exists( 'DSCPW_Conditional_Payments_Page' ) ) {
                     $dscpw_add = wp_create_nonce( 'dscpw_add' );
                     if ( 'add' === $action ) {
                         wp_safe_redirect( add_query_arg( array(
-                            'page'     => 'wc-settings',
-                            'tab'      => 'checkout',
-                            'section'  => 'dscpw_conditional_payments',
-                            'action'   => 'edit',
-                            'post'     => $method_id,
-                            '_wpnonce' => esc_attr( $dscpw_add ),
-                            'message'  => 'created',
+                            'page'          => 'wc-settings',
+                            'tab'           => 'checkout',
+                            'section'       => 'dscpw_conditional_payments',
+                            'action'        => 'edit',
+                            'post'          => $method_id,
+                            '_wpnonce'      => esc_attr( $dscpw_add ),
+                            'dscpw_message' => 'created',
                         ), admin_url( 'admin.php' ) ) );
                         exit;
                     }
                     if ( 'edit' === $action ) {
                         wp_safe_redirect( add_query_arg( array(
-                            'page'     => 'wc-settings',
-                            'tab'      => 'checkout',
-                            'section'  => 'dscpw_conditional_payments',
-                            'action'   => 'edit',
-                            'post'     => $method_id,
-                            '_wpnonce' => esc_attr( $dscpw_add ),
-                            'message'  => 'saved',
+                            'page'          => 'wc-settings',
+                            'tab'           => 'checkout',
+                            'section'       => 'dscpw_conditional_payments',
+                            'action'        => 'edit',
+                            'post'          => $method_id,
+                            '_wpnonce'      => esc_attr( $dscpw_add ),
+                            'dscpw_message' => 'saved',
                         ), admin_url( 'admin.php' ) ) );
                         exit;
                     }

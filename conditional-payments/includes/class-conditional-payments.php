@@ -133,6 +133,12 @@ if ( !class_exists( 'DSCPW_Conditional_Payments' ) ) {
             $this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'dscpw_enqueue_admin_scripts' );
             $this->loader->add_action( 'woocommerce_settings_checkout', $plugin_admin, 'dscpw_start_page' );
             $this->loader->add_filter( 'woocommerce_get_sections_checkout', $plugin_admin, 'dscpw_register_conditions_section' );
+            $this->loader->add_action(
+                'woocommerce_sections_checkout',
+                $plugin_admin,
+                'dscpw_output_payments_subnav_when_hidden',
+                5
+            );
             $this->loader->add_action( 'wp_ajax_dscpw_conditional_payments_product_list_ajax', $plugin_admin, 'dscpw_conditional_payments_product_list_ajax' );
             $this->loader->add_action( 'wp_ajax_dscpw_conditional_payments_variable_product_list_ajax', $plugin_admin, 'dscpw_conditional_payments_variable_product_list_ajax' );
             $this->loader->add_action( 'wp_ajax_dscpw_conditional_payments_conditions_values_ajax', $plugin_admin, 'dscpw_conditional_payments_conditions_values_ajax' );
@@ -181,18 +187,20 @@ if ( !class_exists( 'DSCPW_Conditional_Payments' ) ) {
             global $cp_fs;
             if ( cp_fs()->is_plan( 'pro', true ) ) {
                 $account = $cp_fs->get_account_url();
-                $account_label = 'My Account';
+                $account_label = esc_html__( 'My Account', 'conditional-payments' );
             } else {
                 $account = cp_fs()->get_upgrade_url();
-                $account_label = 'Upgrade to Pro';
+                $account_label = esc_html__( 'Upgrade to Pro', 'conditional-payments' );
             }
             $custom_actions = array(
-                'account'   => sprintf( '<a href="%s">%s</a>', esc_url( $account ), __( $account_label, 'conditional-payments' ) ),
+                'account'   => sprintf( '<a href="%s">%s</a>', esc_url( $account ), esc_html( $account_label ) ),
                 'configure' => sprintf( '<a href="%s">%s</a>', esc_url( add_query_arg( array(
-                    'page' => 'wc-settings&tab=checkout&section=dscpw_conditional_payments',
-                ), admin_url( 'admin.php' ) ) ), __( 'Settings', 'conditional-payments' ) ),
-                'docs'      => sprintf( '<a href="%s" target="_blank">%s</a>', esc_url( 'https://docs.thedotstore.com/collection/485-conditional-payments' ), __( 'Docs', 'conditional-payments' ) ),
-                'support'   => sprintf( '<a href="%s" target="_blank">%s</a>', esc_url( 'www.thedotstore.com/support' ), __( 'Support', 'conditional-payments' ) ),
+                    'page'    => 'wc-settings',
+                    'tab'     => 'checkout',
+                    'section' => 'dscpw_conditional_payments',
+                ), admin_url( 'admin.php' ) ) ), esc_html__( 'Settings', 'conditional-payments' ) ),
+                'docs'      => sprintf( '<a href="%s" target="_blank">%s</a>', esc_url( 'https://docs.thedotstore.com/collection/485-conditional-payments' ), esc_html__( 'Docs', 'conditional-payments' ) ),
+                'support'   => sprintf( '<a href="%s" target="_blank">%s</a>', esc_url( 'https://www.thedotstore.com/support' ), esc_html__( 'Support', 'conditional-payments' ) ),
             );
             // add the links to the front of the actions list
             return array_merge( $custom_actions, $actions );

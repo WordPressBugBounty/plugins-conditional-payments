@@ -4,7 +4,7 @@
  * Plugin Name: Conditional Payment Methods for WooCommerce
  * Plugin URI: https://www.thedotstore.com/conditional-payments-for-woocommerce/
  * Description: Allows store owners to restrict payment methods based on the various conditions!
- * Version: 1.2.2
+ * Version: 1.2.3
  * Author: theDotstore
  * Author URI: https://www.thedotstore.com/
  * License: GPL-3.0+
@@ -14,8 +14,8 @@
  * Requires Plugins: woocommerce
  * 
  * WC requires at least: 4.5
- * WP tested up to:      6.7.2
- * WC tested up to:      9.7.1
+ * WP tested up to:      6.9.4
+ * WC tested up to:      10.6.2
  * Requires PHP:         5.6
  * Requires at least:    5.0
  */
@@ -40,20 +40,21 @@ if ( function_exists( 'cp_fs' ) ) {
                 require_once dirname( __FILE__ ) . '/freemius/start.php';
                 // @phpstan-ignore-next-line
                 $cp_fs = fs_dynamic_init( array(
-                    'id'             => '10262',
-                    'slug'           => 'conditional-payments',
-                    'type'           => 'plugin',
-                    'public_key'     => 'pk_cacffec308be455e8627fc8957f10',
-                    'is_premium'     => false,
-                    'premium_suffix' => 'Premium',
-                    'has_addons'     => false,
-                    'has_paid_plans' => true,
-                    'menu'           => array(
+                    'id'               => '10262',
+                    'slug'             => 'conditional-payments',
+                    'type'             => 'plugin',
+                    'public_key'       => 'pk_cacffec308be455e8627fc8957f10',
+                    'is_premium'       => false,
+                    'premium_suffix'   => 'Premium',
+                    'has_addons'       => false,
+                    'has_paid_plans'   => true,
+                    'menu'             => array(
                         'slug'       => 'conditional-payments',
                         'first-path' => 'admin.php?page=wc-settings&tab=checkout&section=dscpw_conditional_payments',
                         'support'    => false,
                     ),
-                    'is_live'        => true,
+                    'is_live'          => true,
+                    'is_org_compliant' => true,
                 ) );
             }
             return $cp_fs;
@@ -66,7 +67,7 @@ if ( function_exists( 'cp_fs' ) ) {
     }
 }
 if ( !defined( 'DSCPW_PLUGIN_VERSION' ) ) {
-    define( 'DSCPW_PLUGIN_VERSION', '1.2.2' );
+    define( 'DSCPW_PLUGIN_VERSION', '1.2.3' );
 }
 if ( !defined( 'DSCPW_PLUGIN_URL' ) ) {
     define( 'DSCPW_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

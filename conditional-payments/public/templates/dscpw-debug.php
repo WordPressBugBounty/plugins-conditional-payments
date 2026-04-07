@@ -1,3 +1,16 @@
+<?php
+// If this file is called directly, abort.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Template for the debug information.
+ *
+ * @since 1.2.1
+ *
+ */
+?>
 <div id="dscpw-debug">
 	<div id="dscpw-debug-header">
 		<div class="dscpw-debug-title"><?php esc_html_e( 'Conditional Payment Methods Debug', 'conditional-payments' ); ?></div>
